@@ -199,7 +199,9 @@ Completed or implemented:
 - prepared-trace CSV, raw-map CSV, processed-map CSV + JSON sidecar, parameter-summary TXT and self-contained HTML-report exports;
 - direct browser project open/save using existing `.hmmap` schemas;
 - deterministic large-data smoke: 120,000 source samples through import, preparation, 100×100 reconstruction, processing and histogram;
-- CI gate for direct `file://` boot in headless Chrome.
+- CI gate for direct `file://` boot in headless Chrome;
+- browser layout contract at 1366×768 and 1760×900: no page scrollbar, no title header, control/workspace columns own the vertical scrolling;
+- offline ZIP packaging with a 2 MiB CI ceiling; current package is 43,207 bytes versus 52,647,228 bytes for the previous Qt Map Reconstruction portable ZIP (about 1,218× smaller).
 
 Still required before desktop replacement:
 
@@ -207,7 +209,7 @@ Still required before desktop replacement:
 - historical user-created `.hmmap` corpus, because HappyMeasure does not contain committed real `.hmmap` fixtures;
 - representative real HappyMeasure CSV corpus beyond synthetic/oracle fixtures;
 - browser-memory review on larger real files;
-- final offline ZIP/artifact-size comparison with the Qt portable build.
+- final user acceptance of the offline ZIP artifact.
 
 ## Final replacement gate
 

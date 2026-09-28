@@ -83,4 +83,51 @@ if (!state || state.appReady !== "true") {
   );
 }
 
+
+async function layoutAt(width, height) {
+  await command("Emulation.setDeviceMetricsOverride", {
+    width, height, deviceScaleFactor: 1, mobile: false,
+  });
+  await sleep(150);
+  const result = await command("Runtime.evaluate", {
+    expression: `(() => {
+      const stage = document.querySelector(".stage.active");
+      const control = stage && stage.querySelector(".control-panel");
+      const workspace = stage && stage.querySelector(".workspace");
+      const rect = stage && stage.getBoundingClientRect();
+      return {
+        width: innerWidth,
+        height: innerHeight,
+        scrollHeight: document.scrollingElement.scrollHeight,
+        scrollWidth: document.scrollingElement.scrollWidth,
+        bodyOverflowY: getComputedStyle(document.body).overflowY,
+        headerPresent: Boolean(document.querySelector(".app-header")),
+        controlOverflowY: control ? getComputedStyle(control).overflowY : null,
+        workspaceOverflowY: workspace ? getComputedStyle(workspace).overflowY : null,
+        stageTop: rect ? rect.top : null,
+        stageBottom: rect ? rect.bottom : null,
+      };
+    })()`,
+    returnByValue: true,
+  });
+  return result.result.value;
+}
+
+for (const [width, height] of [[1366, 768], [1760, 900]]) {
+  const layout = await layoutAt(width, height);
+  if (
+    layout.headerPresent ||
+    layout.bodyOverflowY !== "hidden" ||
+    layout.controlOverflowY !== "auto" ||
+    layout.workspaceOverflowY !== "auto" ||
+    layout.scrollHeight > height + 1 ||
+    layout.scrollWidth > width + 1 ||
+    layout.stageTop < -1 ||
+    layout.stageBottom > height + 1
+  ) {
+    throw new Error("Fixed-viewport layout contract failed: " + JSON.stringify(layout));
+  }
+  console.log("layout OK", JSON.stringify(layout));
+}
+
 console.log("file:// boot OK", JSON.stringify(state));

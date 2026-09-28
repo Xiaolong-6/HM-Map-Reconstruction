@@ -87,6 +87,19 @@ jobs:
       - name: Build offline ZIP
         run: python tools/package_offline.py
 
+      - name: Enforce lightweight offline package
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("dist/offline-package.json").read_text(encoding="utf-8"))
+          size = int(manifest["bytes"])
+          limit = 2 * 1024 * 1024
+          if size > limit:
+              raise SystemExit(f"Offline ZIP is {size} bytes; limit is {limit} bytes.")
+          print(f"offline ZIP size: {size} bytes")
+          PY
+
       - name: Upload offline ZIP
         uses: actions/upload-artifact@v4
         with:
