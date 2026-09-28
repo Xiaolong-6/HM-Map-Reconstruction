@@ -676,13 +676,72 @@
 
   function restoreProjectControls(project) {
     const saved = project.state;
+    const prep = saved.preparation;
+    const proc = saved.processing;
     let params = saved.reconstructionParams;
+
+    if (saved.method === "dual_offset") {
+      params = api.reconstruction.convertLegacyToPhaseWindow(params).params;
+    }
+
+    state.rawBytes = project.rawBytes;
+    state.originalFilename = saved.source.original_filename;
+    state.source = project.csv;
+    state.pendingImport = null;
+    state.flipY = saved.flip_y;
+    state.reconstruction = null;
+    state.reconstructionParams = null;
+    state.processed = null;
+    state.histogram = null;
+    state.colorLimits = null;
+    populateSignals(saved.source.signal);
+
+    const rawUnit = rawDisplayUnit();
+    setControl("dark-mode", prep.dark_correction_mode);
+    setControl("constant-baseline", prep.constant_baseline * rawUnit.scale);
+    setControl(
+      "manual-regions",
+      prep.manual_dark_regions
+        .map(region => region.start_s + "," + region.end_s)
+        .join("\n"),
+    );
+    setControl("manual-fit", prep.manual_region_fit);
+    setControl("rolling-quantile", prep.rolling_quantile * 100);
+    setControl("rolling-window", prep.rolling_window_s);
+    setControl("rolling-trend", prep.rolling_trend);
+    setControl("response-direction", prep.response_direction);
+    setControl("gate-enabled", prep.value_gate_enabled);
+    setControl(
+      "gate-min",
+      prep.value_gate_enabled ? prep.value_gate_min * rawUnit.scale : 0,
+    );
+    setControl(
+      "gate-max",
+      prep.value_gate_enabled ? prep.value_gate_max * rawUnit.scale : 1,
+    );
+    setControl("apply-baseline", prep.apply_baseline);
+    setControl("invert-signal", prep.invert_signal);
+
+    setControl("map-rows", params.rows);
+    setControl("map-cols", params.cols);
+    setControl("scan-pattern", params.scan_pattern);
+    setControl("first-row-direction", params.first_row_ltr ? "ltr" : "rtl");
+    setControl("row-a", params.row_a_s);
+    setControl("row-b", params.row_b_s);
+    setControl("rows-apart", params.rows_apart);
+    setControl("row-offset", params.row_offset);
+    setControl("point-a", params.point_a_s);
+    setControl("point-b", params.point_b_s);
+    setControl("points-apart", params.points_apart);
     setControl("y-phase", params.y_phase_fraction);
     setControl("x-period-offset", params.x_period_offset);
     setControl("x-phase", params.x_phase_fraction);
     setControl("window-mode", params.window_mode);
     setControl("window-fraction", params.window_fraction);
-    if (params.window_duration_s != null) setControl("window-duration", params.window_duration_s);
+    setControl(
+      "window-duration",
+      params.window_duration_s == null ? 0.1 : params.window_duration_s,
+    );
     setControl("phase-aggregation", params.aggregation);
 
     setControl("map-baseline", proc.baseline_mode);
@@ -695,18 +754,41 @@
     setControl("color-range-mode", proc.color_range_mode);
     setControl("color-low", proc.percentile_low);
     setControl("color-high", proc.percentile_high);
+
     const referenceScale = normalizationReferenceScale(proc) || 1;
     const displayScale = processingDisplayScale(proc) || 1;
-    setControl("map-baseline-value", (proc.baseline_value == null ? 0 : proc.baseline_value) * rawUnit.scale);
-    setControl("normalization-reference", (proc.normalization_reference == null ? 0 : proc.normalization_reference) * referenceScale);
-    setControl("color-min", (proc.color_min == null ? 0 : proc.color_min) * displayScale);
-    setControl("color-max", (proc.color_max == null ? 0 : proc.color_max) * displayScale);
+    setControl(
+      "map-baseline-value",
+      (proc.baseline_value == null ? 0 : proc.baseline_value) * rawUnit.scale,
+    );
+    setControl(
+      "normalization-reference",
+      (proc.normalization_reference == null ? 0 : proc.normalization_reference) * referenceScale,
+    );
+    setControl(
+      "color-min",
+      (proc.color_min == null ? 0 : proc.color_min) * displayScale,
+    );
+    setControl(
+      "color-max",
+      (proc.color_max == null ? 0 : proc.color_max) * displayScale,
+    );
 
     syncPreparationControls();
     syncReconstructionControls();
     syncAnalysisControls();
     updateDisplayUnitLabels();
     renderSourceSummary();
+    renderImportPreview({
+      names: ["Elapsed_s", ...state.source.signalNames],
+      preview: Array.from(
+        { length: Math.min(12, state.source.sampleCount) },
+        (_, index) => [
+          state.source.timeS[index],
+          ...state.source.signalNames.map(name => state.source.signals[name][index]),
+        ],
+      ),
+    });
     byId("metadata-view").textContent = JSON.stringify(state.source.metadata, null, 2);
 
     recomputePreparation();
@@ -717,7 +799,7 @@
       byId("save-project-button").disabled = !state.rawBytes;
       setStatus(
         "reconstruction-status",
-        "Project opened with geometry unset. Set rows and columns, then reconstruct.",
+        "Project opened with geometry unset. Set rows and columns to reconstruct.",
       );
       updateStageAvailability();
     }
