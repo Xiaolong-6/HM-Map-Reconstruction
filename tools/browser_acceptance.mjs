@@ -142,14 +142,22 @@ async function layoutContract(stageNumber) {
       innerHeight,innerWidth,
       controlOverflow:control?getComputedStyle(control).overflowY:null,
       workspaceOverflow:workspace?getComputedStyle(workspace).overflowY:null,
+      workspaceClientHeight:workspace?.clientHeight||0,
+      workspaceScrollHeight:workspace?.scrollHeight||0,
       top:rect?.top,bottom:rect?.bottom,
     };
   })()`);
+  const workspaceOverflowOkay = stageNumber === 3
+    ? result.workspaceOverflow === "hidden"
+    : result.workspaceOverflow === "auto";
+  const stage3Fits = stageNumber !== 3 ||
+    result.workspaceScrollHeight <= result.workspaceClientHeight + 1;
   if (
     result.stage !== stageNumber ||
     result.bodyOverflow !== "hidden" ||
     result.controlOverflow !== "auto" ||
-    result.workspaceOverflow !== "auto" ||
+    !workspaceOverflowOkay ||
+    !stage3Fits ||
     result.scrollHeight > result.innerHeight + 1 ||
     result.scrollWidth > result.innerWidth + 1 ||
     result.top < -1 || result.bottom > result.innerHeight + 1
@@ -291,8 +299,36 @@ if (!prepHiddenContract.gateHidden) throw new Error("Inactive gate controls must
 await layoutContract(2);
 await screenshot("02-signal-preparation");
 
-// Step 3: set a viable phase-window registration.
+// Step 3: geometry-driven registration recommendation on a trace with 10 s row / 1 s point periods.
 await click("continue-reconstruction-button");
+await setValue("map-rows",12);
+await setValue("map-cols",10);
+await click("recommend-registration-button");
+await waitFor(
+  'document.getElementById("registration-recommendation").textContent.includes("Y period")',
+  "registration recommendation"
+);
+const recommended = await evaluate(`(() => {
+  const rowsApart=Number(document.getElementById("rows-apart").value);
+  const pointsApart=Number(document.getElementById("points-apart").value);
+  return {
+    rowPeriod:(Number(document.getElementById("row-b").value)-Number(document.getElementById("row-a").value))/rowsApart,
+    pointPeriod:(Number(document.getElementById("point-b").value)-Number(document.getElementById("point-a").value))/pointsApart,
+    xPhase:Number(document.getElementById("x-phase").value),
+    text:document.getElementById("registration-recommendation").textContent
+  };
+})()`);
+if (!(recommended.rowPeriod > 8.5 && recommended.rowPeriod < 11.5)) {
+  throw new Error("Recommended Y period missed browser fixture: " + JSON.stringify(recommended));
+}
+if (!(recommended.pointPeriod > 0.75 && recommended.pointPeriod < 1.25)) {
+  throw new Error("Recommended X period missed browser fixture: " + JSON.stringify(recommended));
+}
+if (!(recommended.xPhase >= 0 && recommended.xPhase < 1)) {
+  throw new Error("Recommended X phase is invalid: " + JSON.stringify(recommended));
+}
+
+// Continue with the small 5×5 reconstruction used by the interaction acceptance.
 await setValue("map-rows",5);
 await setValue("map-cols",5);
 await setValue("row-a",10);
@@ -384,6 +420,24 @@ const mapAfterZoom = await evaluate('document.getElementById("map-canvas").toDat
 if (mapAfterZoom === mapBeforeZoom) throw new Error("Map wheel zoom did not change rendered viewport.");
 await click("reset-reconstruction-maps");
 await layoutContract(3);
+const reconstructionViewportFit = await evaluate(`(() => {
+  const workspace=document.querySelector("#stage-3 .workspace").getBoundingClientRect();
+  const trace=document.querySelector("#stage-3 .registration-trace-card").getBoundingClientRect();
+  const maps=document.querySelector("#stage-3 .map-grid").getBoundingClientRect();
+  return {
+    workspaceBottom:workspace.bottom,
+    traceHeight:trace.height,
+    mapsBottom:maps.bottom,
+    mapsHeight:maps.height,
+  };
+})()`);
+if (
+  reconstructionViewportFit.mapsBottom > reconstructionViewportFit.workspaceBottom + 1 ||
+  reconstructionViewportFit.traceHeight < 190 ||
+  reconstructionViewportFit.mapsHeight < 220
+) {
+  throw new Error("Reconstruction three-view fit failed: " + JSON.stringify(reconstructionViewportFit));
+}
 const mapAspect = await evaluate(`(() => {
   const map=document.getElementById("map-canvas").getBoundingClientRect();
   const count=document.getElementById("count-canvas").getBoundingClientRect();
