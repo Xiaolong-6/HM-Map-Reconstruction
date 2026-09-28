@@ -63,5 +63,23 @@ jobs:
         run: |
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          timeout 30s "$CHROME"             --headless=new             --no-sandbox             --disable-gpu             --allow-file-access-from-files             --dump-dom "file://$PWD/index.html" > /tmp/hm-map-dom.html
+          PROFILE="$(mktemp -d)"
+          timeout 60s "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --disable-background-networking \
+            --disable-component-update \
+            --disable-default-apps \
+            --disable-extensions \
+            --disable-sync \
+            --metrics-recording-only \
+            --mute-audio \
+            --no-first-run \
+            --no-default-browser-check \
+            --allow-file-access-from-files \
+            --user-data-dir="$PROFILE" \
+            --virtual-time-budget=1500 \
+            --dump-dom "file://$PWD/index.html" > /tmp/hm-map-dom.html
           grep -q 'data-app-ready="true"' /tmp/hm-map-dom.html
