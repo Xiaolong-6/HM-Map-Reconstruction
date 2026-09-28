@@ -505,6 +505,34 @@ if (
 ) {
   throw new Error("Reconstruction map layout is not compact/aligned: " + JSON.stringify(mapLayout));
 }
+const pixelScientificState = await evaluate(`(() => ({
+  values:Array.from(window.MapReconstructionWeb.appState.reconstruction.values),
+  counts:Array.from(window.MapReconstructionWeb.appState.reconstruction.sample_counts),
+  mapImage:document.getElementById("map-canvas").toDataURL("image/png"),
+  countImage:document.getElementById("count-canvas").toDataURL("image/png")
+}))()`);
+await click("reconstruction-view-smooth");
+await sleep(150);
+const smoothScientificState = await evaluate(`(() => ({
+  values:Array.from(window.MapReconstructionWeb.appState.reconstruction.values),
+  counts:Array.from(window.MapReconstructionWeb.appState.reconstruction.sample_counts),
+  mapImage:document.getElementById("map-canvas").toDataURL("image/png"),
+  countImage:document.getElementById("count-canvas").toDataURL("image/png"),
+  smoothPressed:document.getElementById("reconstruction-view-smooth").getAttribute("aria-pressed")
+}))()`);
+if (smoothScientificState.mapImage === pixelScientificState.mapImage) {
+  throw new Error("Smooth map view did not change reconstructed-map rendering.");
+}
+if (smoothScientificState.countImage !== pixelScientificState.countImage) {
+  throw new Error("Samples/pixel rendering must remain pixel-exact in Smooth view.");
+}
+if (
+  JSON.stringify(smoothScientificState.values) !== JSON.stringify(pixelScientificState.values) ||
+  JSON.stringify(smoothScientificState.counts) !== JSON.stringify(pixelScientificState.counts) ||
+  smoothScientificState.smoothPressed !== "true"
+) {
+  throw new Error("Smooth view changed scientific reconstruction state.");
+}
 await screenshot("03-reconstruction");
 
 // Browser project round-trip: real download -> file input -> reopen -> recompute.
@@ -624,6 +652,25 @@ if (
   analysisPlotLayout.histogramDelta > 2 ||
   analysisPlotLayout.heightDelta > 2
 ) throw new Error("Map Analysis plots must share square-card geometry: " + JSON.stringify(analysisPlotLayout));
+const processedSmoothState = await evaluate(`(() => ({
+  values:Array.from(window.MapReconstructionWeb.appState.processed.values),
+  image:document.getElementById("processed-map-canvas").toDataURL("image/png")
+}))()`);
+await click("analysis-view-pixel");
+await sleep(120);
+const processedPixelState = await evaluate(`(() => ({
+  values:Array.from(window.MapReconstructionWeb.appState.processed.values),
+  image:document.getElementById("processed-map-canvas").toDataURL("image/png"),
+  pixelPressed:document.getElementById("analysis-view-pixel").getAttribute("aria-pressed")
+}))()`);
+if (
+  JSON.stringify(processedSmoothState.values) !== JSON.stringify(processedPixelState.values) ||
+  processedPixelState.pixelPressed !== "true" ||
+  processedSmoothState.image === processedPixelState.image
+) {
+  throw new Error("Pixel/Smooth Map Analysis view contract failed.");
+}
+await click("analysis-view-smooth");
 await screenshot("04-map-analysis");
 
 socket.close();
