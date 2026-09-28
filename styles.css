@@ -520,3 +520,41 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
 }
 #source-summary dd { text-align:left; }
 #source-summary .summary-file { font-variant-numeric:normal; }
+
+/* Unified desktop sidebar width across all four workflow stages. */
+@media (min-width: 1051px) {
+  .stage.active {
+    grid-template-columns: minmax(330px, 350px) minmax(0, 1fr);
+  }
+}
+
+/* Recommendation guidance lives in the button hover; results appear only after detection. */
+.recommend-button { position:relative; }
+
+/* Map Analysis uses the same card geometry for map and distribution. */
+#stage-4 .analysis-grid {
+  align-items:stretch;
+}
+#stage-4 .analysis-grid .map-card,
+#stage-4 .analysis-grid .map-card canvas {
+  min-height:0;
+  height:100%;
+}
+#stage-4 .analysis-grid .map-card {
+  aspect-ratio:1 / 1;
+}
+#stage-4 .analysis-grid .map-card canvas {
+  aspect-ratio:1 / 1;
+}
+
+.three-column {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.three-column .field { min-width:0; }
+.three-column .field span {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}

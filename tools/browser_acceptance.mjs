@@ -275,6 +275,8 @@ if (
   throw new Error("Source summary overflow/truncation contract failed: " + JSON.stringify(sourceSummaryLayout));
 }
 await layoutContract(1);
+const stageSidebarWidths = [];
+stageSidebarWidths.push(await evaluate('document.querySelector("#stage-1 .control-panel").getBoundingClientRect().width'));
 await screenshot("01-import-data");
 
 // Step 2: Preparation plot.
@@ -323,6 +325,7 @@ const prepHiddenContract = await evaluate(`(() => ({
 }))()`);
 if (!prepHiddenContract.gateHidden) throw new Error("Inactive gate controls must stay hidden.");
 await layoutContract(2);
+stageSidebarWidths.push(await evaluate('document.querySelector("#stage-2 .control-panel").getBoundingClientRect().width'));
 await screenshot("02-signal-preparation");
 
 // Step 3: geometry-driven registration recommendation on a trace with 10 s row / 1 s point periods.
@@ -446,6 +449,24 @@ const mapAfterZoom = await evaluate('document.getElementById("map-canvas").toDat
 if (mapAfterZoom === mapBeforeZoom) throw new Error("Map wheel zoom did not change rendered viewport.");
 await click("reset-reconstruction-maps");
 await layoutContract(3);
+stageSidebarWidths.push(await evaluate('document.querySelector("#stage-3 .control-panel").getBoundingClientRect().width'));
+const recommendationHelperContract = await evaluate(`(() => ({
+  hidden: document.getElementById("registration-recommendation").hidden,
+  buttonTitle: document.getElementById("recommend-registration-button").title
+}))()`);
+if (!recommendationHelperContract.buttonTitle.includes("Uses the prepared trace")) {
+  throw new Error("Recommendation help must live in the hover title.");
+}
+const reconstructionControlFit = await evaluate(`(() => {
+  const panel=document.querySelector("#stage-3 .control-panel");
+  panel.scrollTop=0;
+  const rect=panel.getBoundingClientRect();
+  const last=document.getElementById("phase-aggregation").getBoundingClientRect();
+  return {panelBottom:rect.bottom,lastBottom:last.bottom,scrollHeight:panel.scrollHeight,clientHeight:panel.clientHeight};
+})()`);
+if (reconstructionControlFit.lastBottom > reconstructionControlFit.panelBottom + 1) {
+  throw new Error("Stage 3 registration controls should fit the initial sidebar viewport: " + JSON.stringify(reconstructionControlFit));
+}
 const reconstructionViewportFit = await evaluate(`(() => {
   const workspace=document.querySelector("#stage-3 .workspace").getBoundingClientRect();
   const trace=document.querySelector("#stage-3 .registration-trace-card").getBoundingClientRect();
@@ -561,6 +582,13 @@ if (Object.values(analysisHiddenContract).some(value => !value)) {
   throw new Error("Inactive Map Analysis controls must stay hidden: " + JSON.stringify(analysisHiddenContract));
 }
 await layoutContract(4);
+stageSidebarWidths.push(await evaluate('document.querySelector("#stage-4 .control-panel").getBoundingClientRect().width'));
+if (
+  Math.max(...stageSidebarWidths) - Math.min(...stageSidebarWidths) > 1 ||
+  stageSidebarWidths[0] < 329
+) {
+  throw new Error("Workflow sidebars must use one wider desktop width: " + JSON.stringify(stageSidebarWidths));
+}
 const analysisControlFit = await evaluate(`(() => {
   const panel=document.querySelector("#stage-4 .control-panel");
   panel.scrollTop=0;
@@ -582,11 +610,20 @@ if (
 ) {
   throw new Error("Stage 4 controls do not fit the initial panel viewport: " + JSON.stringify(analysisControlFit));
 }
-const analysisMapAspect = await evaluate(`(() => {
+const analysisPlotLayout = await evaluate(`(() => {
   const map=document.getElementById("processed-map-canvas").getBoundingClientRect();
-  return Math.abs(map.width-map.height);
+  const histogram=document.getElementById("histogram-canvas").getBoundingClientRect();
+  return {
+    mapDelta:Math.abs(map.width-map.height),
+    histogramDelta:Math.abs(histogram.width-histogram.height),
+    heightDelta:Math.abs(map.height-histogram.height)
+  };
 })()`);
-if (analysisMapAspect > 2) throw new Error("Processed map must remain square.");
+if (
+  analysisPlotLayout.mapDelta > 2 ||
+  analysisPlotLayout.histogramDelta > 2 ||
+  analysisPlotLayout.heightDelta > 2
+) throw new Error("Map Analysis plots must share square-card geometry: " + JSON.stringify(analysisPlotLayout));
 await screenshot("04-map-analysis");
 
 socket.close();
