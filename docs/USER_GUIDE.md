@@ -81,6 +81,8 @@ The maximum reconstruction size is 1,000,000 pixels.
 
 After geometry is entered, **Recommend registration** estimates an initial registration from the prepared trace.
 
+Rows and Columns constrain the timing estimator. Scan pattern and first-row direction determine map orientation after timing reconstruction.
+
 The result displays an estimated Y period, X period and a confidence label. Treat it as an initializer. Visually inspect the trace and map, then refine if necessary.
 
 ### Manual registration

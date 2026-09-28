@@ -151,6 +151,8 @@ This orientation step is applied identically to reconstructed values and sample 
 
 The recommendation algorithm is a heuristic initializer.
 
+The timing estimator currently uses **Rows** and **Columns** as its timing prior. Scan pattern and first-row direction are orientation settings applied after timing reconstruction; they do not alter the period search.
+
 ### Resampling
 
 Finite trace samples are interpolated to a uniformly spaced representation capped at 6000 samples. The signal is centered and scaled with a MAD-based scale when possible.

@@ -1245,7 +1245,7 @@
         preparation: preparationConfig(),
         processing: analysisConfig(),
         flipY: state.flipY,
-        applicationVersion: "web-prototype",
+        applicationVersion: "0.1.0",
       });
       downloadBlob(
         new Blob([result.bytes], { type: "application/zip" }),
