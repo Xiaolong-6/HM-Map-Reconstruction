@@ -258,15 +258,26 @@ await setValue("y-phase",0);
 await setValue("x-period-offset",0);
 await setValue("x-phase",0.5);
 await setValue("window-fraction",0.65);
-await click("reconstruct-button");
+const reconstructButtonPresent = await evaluate('Boolean(document.getElementById("reconstruct-button"))');
+if (reconstructButtonPresent) throw new Error("Manual Reconstruct button must not exist.");
 await waitFor(
   'window.MapReconstructionWeb.appState.reconstruction?.values?.length===25',
-  "phase-window reconstruction"
+  "automatic phase-window reconstruction"
 );
 const finitePixels = await evaluate(
   'Array.from(window.MapReconstructionWeb.appState.reconstruction.values).filter(Number.isFinite).length'
 );
 if (finitePixels < 20) throw new Error("Too few finite reconstructed pixels: " + finitePixels);
+
+// Editing a numeric registration field must automatically update the model.
+const beforeRowA = await evaluate('window.MapReconstructionWeb.appState.reconstructionParams.row_a_s');
+await setValue("row-a", 11);
+await waitFor(
+  'window.MapReconstructionWeb.appState.reconstructionParams?.row_a_s===11',
+  "automatic reconstruction after numeric edit"
+);
+const afterRowA = await evaluate('window.MapReconstructionWeb.appState.reconstructionParams.row_a_s');
+if (afterRowA === beforeRowA) throw new Error("Registration edit did not update reconstruction automatically.");
 
 // Drag YA marker and ensure numeric value changes + reconstruction returns.
 const markerBefore = await evaluate('Number(document.getElementById("row-a").value)');
