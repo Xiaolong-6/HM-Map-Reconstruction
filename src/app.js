@@ -454,10 +454,23 @@
         state.reconstructionParams,
       );
       byId("save-project-button").disabled = !state.rawBytes;
+      const counts = Array.from(state.reconstruction.sample_counts);
+      const finitePixels = Array.from(state.reconstruction.values).filter(Number.isFinite).length;
+      const summary = byId("reconstruction-summary");
+      summary.className = "summary";
+      summary.innerHTML =
+        "<dl>" +
+        "<dt>Map</dt><dd>" + state.reconstruction.rows + " × " + state.reconstruction.cols + "</dd>" +
+        "<dt>Finite</dt><dd>" + finitePixels + " / " + state.reconstruction.values.length + "</dd>" +
+        "<dt>Samples / px</dt><dd>" + Math.min(...counts) + " – " + Math.max(...counts) + "</dd>" +
+        "</dl>";
       setStatus("reconstruction-status", "Reconstruction updated automatically.", "ok");
     } catch (error) {
       state.reconstruction = null;
       state.reconstructionParams = null;
+      const summary = byId("reconstruction-summary");
+      summary.className = "summary empty";
+      summary.textContent = "Reconstruction unavailable.";
       setStatus("reconstruction-status", error.message || String(error), "error");
     }
     renderReconstruction();
