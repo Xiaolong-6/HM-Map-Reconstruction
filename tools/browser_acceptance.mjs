@@ -1,10 +1,11 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 const endpoint = process.env.CDP_ENDPOINT || "http://127.0.0.1:9222";
 const fileUrl = process.env.FILE_URL;
 const screenshotDir = process.env.SCREENSHOT_DIR || "dist/ui-review";
 const fixturePath = path.resolve(process.env.FIXTURE_PATH || "/tmp/hm-map-browser-acceptance.csv");
+const downloadDir = path.resolve(process.env.DOWNLOAD_DIR || "/tmp/hm-map-browser-downloads");
 if (!fileUrl) throw new Error("FILE_URL is required.");
 
 async function sleep(ms) {
@@ -112,6 +113,21 @@ async function screenshot(name) {
   await writeFile(path.join(screenshotDir, name + ".png"), Buffer.from(result.data, "base64"));
 }
 
+async function waitForDownloadedProject(timeoutMs = 10000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const names = await readdir(downloadDir).catch(() => []);
+    const candidate = names.find(name => name.endsWith(".hmmap") && !name.endsWith(".crdownload"));
+    if (candidate) {
+      const fullPath = path.join(downloadDir, candidate);
+      const info = await stat(fullPath);
+      if (info.size > 100) return fullPath;
+    }
+    await sleep(100);
+  }
+  throw new Error("Timed out waiting for downloaded .hmmap.");
+}
+
 async function layoutContract(stageNumber) {
   const result = await evaluate(`(() => {
     const stage=document.querySelector(".stage.active");
@@ -146,6 +162,20 @@ await command("Runtime.enable");
 await command("Page.enable");
 await command("DOM.enable");
 await command("Input.setIgnoreInputEvents", { ignore: false });
+await rm(downloadDir, { recursive: true, force: true });
+await mkdir(downloadDir, { recursive: true });
+try {
+  await command("Browser.setDownloadBehavior", {
+    behavior: "allow",
+    downloadPath: downloadDir,
+    eventsEnabled: true,
+  });
+} catch (_) {
+  await command("Page.setDownloadBehavior", {
+    behavior: "allow",
+    downloadPath: downloadDir,
+  });
+}
 await command("Emulation.setDeviceMetricsOverride", {
   width: 1600, height: 900, deviceScaleFactor: 1, mobile: false,
 });
@@ -312,7 +342,75 @@ const reconstructionUiContract = await evaluate(`(() => ({
 if (!reconstructionUiContract.durationHidden) throw new Error("Fixed-duration control must be hidden in fraction mode.");
 if (reconstructionUiContract.summaryText.includes("No reconstruction")) throw new Error("Reconstruction summary is stale.");
 await layoutContract(3);
+const mapAspect = await evaluate(`(() => {
+  const map=document.getElementById("map-canvas").getBoundingClientRect();
+  const count=document.getElementById("count-canvas").getBoundingClientRect();
+  return {
+    mapDelta:Math.abs(map.width-map.height),
+    countDelta:Math.abs(count.width-count.height)
+  };
+})()`);
+if (mapAspect.mapDelta > 2 || mapAspect.countDelta > 2) {
+  throw new Error("Reconstruction maps must remain square: " + JSON.stringify(mapAspect));
+}
 await screenshot("03-reconstruction");
+
+// Browser project round-trip: real download -> file input -> reopen -> recompute.
+const expectedProjectState = await evaluate(`(() => ({
+  rowA: window.MapReconstructionWeb.appState.reconstructionParams.row_a_s,
+  sampleCount: window.MapReconstructionWeb.appState.source.sampleCount,
+  signal: window.MapReconstructionWeb.appState.signal,
+  values: Array.from(window.MapReconstructionWeb.appState.reconstruction.values)
+}))()`);
+await click("save-project-button");
+const downloadedProject = await waitForDownloadedProject();
+
+await setValue("row-a", expectedProjectState.rowA + 7);
+await waitFor(
+  `window.MapReconstructionWeb.appState.reconstructionParams?.row_a_s===${expectedProjectState.rowA + 7}`,
+  "temporary registration change before project reopen"
+);
+
+const projectDocument = await command("DOM.getDocument", { depth: -1, pierce: true });
+const projectInput = await command("DOM.querySelector", {
+  nodeId: projectDocument.root.nodeId,
+  selector: "#project-file",
+});
+if (!projectInput.nodeId) throw new Error("Could not find #project-file.");
+await command("DOM.setFileInputFiles", {
+  nodeId: projectInput.nodeId,
+  files: [downloadedProject],
+});
+await evaluate('document.getElementById("project-file").dispatchEvent(new Event("change",{bubbles:true}))');
+await waitFor(
+  `window.MapReconstructionWeb.appState.reconstructionParams?.row_a_s===${expectedProjectState.rowA} &&
+   window.MapReconstructionWeb.appState.source?.sampleCount===${expectedProjectState.sampleCount} &&
+   window.MapReconstructionWeb.appState.reconstruction?.values?.length===${expectedProjectState.values.length}`,
+  "downloaded project reopen"
+);
+const reopenedProjectState = await evaluate(`(() => ({
+  rowA: window.MapReconstructionWeb.appState.reconstructionParams.row_a_s,
+  sampleCount: window.MapReconstructionWeb.appState.source.sampleCount,
+  signal: window.MapReconstructionWeb.appState.signal,
+  values: Array.from(window.MapReconstructionWeb.appState.reconstruction.values),
+  status: document.getElementById("import-status").textContent
+}))()`);
+if (reopenedProjectState.signal !== expectedProjectState.signal) {
+  throw new Error("Project reopen changed source signal.");
+}
+let maxRoundTripDelta = 0;
+for (let index = 0; index < expectedProjectState.values.length; index += 1) {
+  const before = expectedProjectState.values[index];
+  const after = reopenedProjectState.values[index];
+  if (Number.isNaN(before) && Number.isNaN(after)) continue;
+  maxRoundTripDelta = Math.max(maxRoundTripDelta, Math.abs(before - after));
+}
+if (!(maxRoundTripDelta <= 1e-15)) {
+  throw new Error("Project reopen changed reconstructed values; max delta=" + maxRoundTripDelta);
+}
+if (!/SHA-256 verified/i.test(reopenedProjectState.status)) {
+  throw new Error("Project reopen did not report SHA-256 verification: " + reopenedProjectState.status);
+}
 
 // Step 4: analysis is generated from the reconstructed map.
 await evaluate("document.querySelector('.stage-button[data-stage=\"4\"]').click()");
@@ -332,6 +430,11 @@ if (Object.values(analysisHiddenContract).some(value => !value)) {
   throw new Error("Inactive Map Analysis controls must stay hidden: " + JSON.stringify(analysisHiddenContract));
 }
 await layoutContract(4);
+const analysisMapAspect = await evaluate(`(() => {
+  const map=document.getElementById("processed-map-canvas").getBoundingClientRect();
+  return Math.abs(map.width-map.height);
+})()`);
+if (analysisMapAspect > 2) throw new Error("Processed map must remain square.");
 await screenshot("04-map-analysis");
 
 socket.close();
@@ -341,5 +444,6 @@ console.log(JSON.stringify({
   darkRegions: await Promise.resolve(true),
   markerBefore,
   markerAfter,
+  projectRoundTripMaxDelta: maxRoundTripDelta,
   screenshots: ["01-import-data","02-signal-preparation","03-reconstruction","04-map-analysis"],
 }, null, 2));
