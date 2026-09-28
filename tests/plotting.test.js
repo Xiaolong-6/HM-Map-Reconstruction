@@ -109,3 +109,27 @@ test("map index ticks use one-based integer pixel labels",()=>{
   assert.equal(labels[labels.length-1],50);
   assert.ok(labels.length<=6);
 });
+
+
+test("bilinear heatmap interpolation averages a finite 2x2 neighborhood",()=>{
+  const values=Float64Array.from([0,10,20,30]);
+  assert.equal(p.bilinearValue(values,2,2,0,0),0);
+  assert.equal(p.bilinearValue(values,2,2,1,1),30);
+  assert.ok(Math.abs(p.bilinearValue(values,2,2,0.5,0.5)-15)<1e-12);
+});
+
+test("bilinear heatmap interpolation never fills across a NaN mask",()=>{
+  const values=Float64Array.from([0,10,20,NaN]);
+  assert.ok(Number.isNaN(p.bilinearValue(values,2,2,0.5,0.5)));
+  assert.equal(p.bilinearValue(values,2,2,0,0),0);
+});
+
+test("smooth heatmap raster preserves invalid neighborhoods",()=>{
+  const values=Float64Array.from([1,2,3,NaN]);
+  const viewport=p.heatmapViewport(300,300,2,2,{xMin:0,xMax:2,yMin:0,yMax:2});
+  const raster=p.smoothHeatmapRaster(values,2,2,viewport,8,8,false);
+  assert.equal(raster.width,8);
+  assert.equal(raster.height,8);
+  assert.ok(Array.from(raster.values).some(Number.isNaN));
+  assert.ok(Array.from(raster.values).some(Number.isFinite));
+});

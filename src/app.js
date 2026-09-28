@@ -14,6 +14,7 @@
     histogram: null,
     colorLimits: null,
     flipY: false,
+    mapViewMode: "pixel",
     pendingImport: null,
     activeStage: 1,
   };
@@ -559,6 +560,28 @@
     updateStageAvailability();
   }
 
+  function syncMapViewButtons() {
+    const smooth = state.mapViewMode === "smooth";
+    [
+      ["reconstruction-view-pixel", !smooth],
+      ["reconstruction-view-smooth", smooth],
+      ["analysis-view-pixel", !smooth],
+      ["analysis-view-smooth", smooth],
+    ].forEach(([id, active]) => {
+      const node = byId(id);
+      if (!node) return;
+      node.classList.toggle("active", active);
+      node.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  function setMapViewMode(mode) {
+    state.mapViewMode = mode === "smooth" ? "smooth" : "pixel";
+    syncMapViewButtons();
+    renderReconstruction();
+    renderAnalysis();
+  }
+
   function renderReconstruction() {
     const mapEmpty=byId("map-empty");
     const countEmpty=byId("count-empty");
@@ -583,6 +606,7 @@
         inverted:byId("invert-palette").checked,
         scale:display.scale,
         unit:display.unit,
+        smooth:state.mapViewMode === "smooth",
         xLabel:"Column",
         yLabel:"Row",
       },
@@ -733,6 +757,7 @@
           inverted:byId("invert-palette").checked,
           scale:display.scale,
           unit:display.unit,
+          smooth:state.mapViewMode === "smooth",
           xLabel:"Column",
           yLabel:"Row",
         },
@@ -1385,6 +1410,11 @@
       countMapController.setView(rawMapController.resolvedView(), false);
     });
     byId("reset-analysis-map").addEventListener("click", () => processedMapController.reset());
+    byId("reconstruction-view-pixel").addEventListener("click", () => setMapViewMode("pixel"));
+    byId("reconstruction-view-smooth").addEventListener("click", () => setMapViewMode("smooth"));
+    byId("analysis-view-pixel").addEventListener("click", () => setMapViewMode("pixel"));
+    byId("analysis-view-smooth").addEventListener("click", () => setMapViewMode("smooth"));
+    syncMapViewButtons();
     byId("add-dark-region").addEventListener("click", () => {
       setControl("dark-mode", "manual_regions");
       syncPreparationControls();

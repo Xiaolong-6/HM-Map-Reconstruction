@@ -328,6 +328,47 @@
     return indices.map(index=>Object.freeze({index,coordinate:index+0.5,label:index+1}));
   }
 
+  function bilinearValue(values, rows, cols, rowCoordinate, colCoordinate) {
+    if(!values||rows<1||cols<1||values.length!==rows*cols)return NaN;
+    const row=Math.max(0,Math.min(rows-1,Number(rowCoordinate)));
+    const col=Math.max(0,Math.min(cols-1,Number(colCoordinate)));
+    if(!Number.isFinite(row)||!Number.isFinite(col))return NaN;
+    const r0=Math.floor(row),r1=Math.min(rows-1,r0+1);
+    const c0=Math.floor(col),c1=Math.min(cols-1,c0+1);
+    const fy=row-r0,fx=col-c0;
+    const samples=[
+      [values[r0*cols+c0],(1-fx)*(1-fy)],
+      [values[r0*cols+c1],fx*(1-fy)],
+      [values[r1*cols+c0],(1-fx)*fy],
+      [values[r1*cols+c1],fx*fy],
+    ];
+    let value=0,total=0;
+    for(const sample of samples){
+      const weight=sample[1];
+      if(weight<=1e-12)continue;
+      if(!Number.isFinite(sample[0]))return NaN;
+      value+=sample[0]*weight;
+      total+=weight;
+    }
+    return total>0?value/total:NaN;
+  }
+
+  function smoothHeatmapRaster(values, rows, cols, viewport, width, height, flipY) {
+    const rasterWidth=Math.max(2,Math.floor(width));
+    const rasterHeight=Math.max(2,Math.floor(height));
+    const output=new Float64Array(rasterWidth*rasterHeight);
+    output.fill(NaN);
+    for(let y=0;y<rasterHeight;y+=1){
+      const dataY=viewport.yMin+(y+0.5)/rasterHeight*(viewport.yMax-viewport.yMin);
+      const rowCoordinate=(flipY?rows-dataY:dataY)-0.5;
+      for(let x=0;x<rasterWidth;x+=1){
+        const dataX=viewport.xMin+(x+0.5)/rasterWidth*(viewport.xMax-viewport.xMin);
+        output[y*rasterWidth+x]=bilinearValue(values,rows,cols,rowCoordinate,dataX-0.5);
+      }
+    }
+    return Object.freeze({values:output,width:rasterWidth,height:rasterHeight});
+  }
+
   function drawHeatmap(canvas, values, rows, cols, options) {
     const context=clearCanvas(canvas);
     if(!rows||!cols||!values||values.length!==rows*cols)return null;
@@ -336,10 +377,6 @@
     const viewport=heatmapViewport(canvas.clientWidth,canvas.clientHeight,rows,cols,options&&options.view);
     if(!viewport)return null;
     const minimum=limits.minimum,maximum=limits.maximum;
-    const source=document.createElement("canvas");
-    source.width=cols;source.height=rows;
-    const sourceContext=source.getContext("2d");
-    const image=sourceContext.createImageData(cols,rows);
     const stops=(options&&options.counts)
       ? [[239,246,255],[96,165,250],[23,62,140]]
       : paletteStops(
@@ -352,19 +389,46 @@
       return [0,1,2].map(channel=>Math.round(stops[left][channel]*(1-f)+stops[right][channel]*f));
     }
     const flipY=Boolean(options&&options.flipY);
-    for(let index=0;index<values.length;index+=1){
-      const target=heatmapDisplayIndex(index,rows,cols,flipY)*4,value=values[index];
+    const smooth=Boolean(options&&options.smooth)&&!(options&&options.counts);
+    const source=document.createElement("canvas");
+    let sourceValues,sourceWidth,sourceHeight;
+    if(smooth){
+      const maxSide=900;
+      const raster=smoothHeatmapRaster(
+        values,rows,cols,viewport,
+        Math.max(2,Math.min(maxSide,Math.round(viewport.plotWidth))),
+        Math.max(2,Math.min(maxSide,Math.round(viewport.plotHeight))),
+        flipY,
+      );
+      sourceValues=raster.values;sourceWidth=raster.width;sourceHeight=raster.height;
+    }else{
+      sourceValues=new Float64Array(rows*cols);
+      sourceValues.fill(NaN);
+      for(let index=0;index<values.length;index+=1){
+        sourceValues[heatmapDisplayIndex(index,rows,cols,flipY)]=values[index];
+      }
+      sourceWidth=cols;sourceHeight=rows;
+    }
+    source.width=sourceWidth;source.height=sourceHeight;
+    const sourceContext=source.getContext("2d");
+    const image=sourceContext.createImageData(sourceWidth,sourceHeight);
+    for(let index=0;index<sourceValues.length;index+=1){
+      const target=index*4,value=sourceValues[index];
       if(!Number.isFinite(value)){image.data[target+3]=0;continue;}
       const color=colorAt((value-minimum)/(maximum-minimum));
       image.data[target]=color[0];image.data[target+1]=color[1];image.data[target+2]=color[2];image.data[target+3]=255;
     }
     sourceContext.putImageData(image,0,0);
     context.imageSmoothingEnabled=false;
-    context.drawImage(
-      source,
-      viewport.xMin,viewport.yMin,viewport.xMax-viewport.xMin,viewport.yMax-viewport.yMin,
-      viewport.left,viewport.top,viewport.plotWidth,viewport.plotHeight,
-    );
+    if(smooth){
+      context.drawImage(source,viewport.left,viewport.top,viewport.plotWidth,viewport.plotHeight);
+    }else{
+      context.drawImage(
+        source,
+        viewport.xMin,viewport.yMin,viewport.xMax-viewport.xMin,viewport.yMax-viewport.yMin,
+        viewport.left,viewport.top,viewport.plotWidth,viewport.plotHeight,
+      );
+    }
 
     context.save();
     context.strokeStyle="#94a3b8";
@@ -520,6 +584,6 @@
   api.plotting = Object.freeze({
     clearCanvas, drawTrace, drawTraces,
     traceDataBounds, traceViewport, traceEnvelopeIndices, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
-    paletteStops, heatmapBounds, heatmapDisplayIndex, heatmapViewport, mapIndexTicks, mapPixelToData, drawHeatmap, drawHistogram
+    paletteStops, heatmapBounds, heatmapDisplayIndex, heatmapViewport, mapIndexTicks, mapPixelToData, bilinearValue, smoothHeatmapRaster, drawHeatmap, drawHistogram
   });
 })(typeof window !== "undefined" ? window : globalThis);

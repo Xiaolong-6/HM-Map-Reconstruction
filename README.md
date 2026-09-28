@@ -165,10 +165,13 @@ Maps support:
 
 - Row / Column axes;
 - numeric color bars;
+- Pixel and display-only Smooth rendering for value maps;
 - wheel zoom;
 - drag pan;
 - double-click/reset view;
 - synchronized Raw map / Samples-per-pixel navigation.
+
+Smooth view uses bilinear interpolation in value space for visualization only. It does not modify reconstructed/processed arrays or exports, and it does not interpolate across non-finite pixels. Samples / pixel remains a discrete Pixel view.
 
 ## Projects and compatibility
 
