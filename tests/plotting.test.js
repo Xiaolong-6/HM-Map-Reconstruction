@@ -53,3 +53,25 @@ test("histogram endpoint labels use compact tick formatter",()=>{
   assert.equal(p.formatTick(1.658e-6,1e-6),"1.658e-6");
   assert.equal(p.formatTick(-2.4e-6,1e-6),"-2.4e-6");
 });
+
+
+test("trace envelope preserves narrow extrema instead of stride-aliasing them",()=>{
+  const time=Array.from({length:1000},(_,i)=>i);
+  const values=Array(1000).fill(0);
+  values[501]=9;
+  values[502]=-7;
+  const viewport=p.traceViewport(800,400,time,[{values,scale:1}],{xMin:0,xMax:999,yMin:-8,yMax:10});
+  const indices=p.traceEnvelopeIndices(time,values,viewport,10);
+  assert.ok(indices.includes(501));
+  assert.ok(indices.includes(502));
+  assert.ok(indices.length<80);
+});
+
+test("trace envelope retains a non-finite gap marker",()=>{
+  const time=Array.from({length:100},(_,i)=>i);
+  const values=Array(100).fill(1);
+  values[50]=NaN;
+  const viewport=p.traceViewport(500,300,time,[{values,scale:1}],{xMin:0,xMax:99,yMin:0,yMax:2});
+  const indices=p.traceEnvelopeIndices(time,values,viewport,5);
+  assert.ok(indices.includes(50));
+});

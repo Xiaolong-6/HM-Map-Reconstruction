@@ -87,6 +87,47 @@
     return Number(number.toPrecision(5)).toString();
   }
 
+  function traceEnvelopeIndices(timeS, values, viewport, maxBuckets) {
+    const length=Math.min(timeS ? timeS.length : 0, values ? values.length : 0);
+    if(!length||!viewport)return [];
+    const bucketCount=Math.max(1,Math.floor(maxBuckets||viewport.plotWidth||1));
+    const buckets=Array.from({length:bucketCount},()=>null);
+    const span=viewport.xMax-viewport.xMin;
+    for(let index=0;index<length;index+=1){
+      const x=timeS[index];
+      if(!Number.isFinite(x)||x<viewport.xMin||x>viewport.xMax)continue;
+      const rawBucket=Math.floor((x-viewport.xMin)/span*bucketCount);
+      const bucketIndex=Math.max(0,Math.min(bucketCount-1,rawBucket));
+      const value=values[index];
+      let bucket=buckets[bucketIndex];
+      if(!bucket){
+        bucket=buckets[bucketIndex]={first:index,last:index,min:index,max:index,gap:null};
+      }
+      bucket.last=index;
+      if(!Number.isFinite(value)){
+        if(bucket.gap==null)bucket.gap=index;
+        continue;
+      }
+      if(!Number.isFinite(values[bucket.min])||value<values[bucket.min])bucket.min=index;
+      if(!Number.isFinite(values[bucket.max])||value>values[bucket.max])bucket.max=index;
+    }
+    const output=[];
+    let previous=-1;
+    for(const bucket of buckets){
+      if(!bucket)continue;
+      const candidates=[bucket.first,bucket.min,bucket.max,bucket.gap,bucket.last]
+        .filter(index=>index!=null)
+        .sort((a,b)=>a-b);
+      for(const index of candidates){
+        if(index!==previous){
+          output.push(index);
+          previous=index;
+        }
+      }
+    }
+    return output;
+  }
+
   function drawTraces(canvas, timeS, series, options) {
     const context = clearCanvas(canvas);
     const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -129,15 +170,15 @@
     }
 
     const colors = ["#275fe6", "#d97706", "#168a62", "#7c3aed"];
-    const maxRendered = Math.max(800, Math.floor(plotWidth * 2));
-    const stride = Math.max(1, Math.floor(timeS.length / maxRendered));
+    const envelopeBuckets = Math.max(320, Math.floor(plotWidth));
     series.forEach(function (item, seriesIndex) {
       context.strokeStyle = item.color || colors[seriesIndex % colors.length];
       context.lineWidth = item.width || 1.35;
       context.setLineDash(item.dash || []);
       context.beginPath();
       let started = false;
-      for (let index = 0; index < timeS.length; index += stride) {
+      const indices = traceEnvelopeIndices(timeS, item.values, viewport, envelopeBuckets);
+      for (const index of indices) {
         const scale = Number.isFinite(item.scale) ? item.scale : 1;
         const value = item.values[index] * scale;
         if (!Number.isFinite(value)) { started = false; continue; }
@@ -297,7 +338,7 @@
 
   api.plotting = Object.freeze({
     clearCanvas, drawTrace, drawTraces,
-    traceDataBounds, traceViewport, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
+    traceDataBounds, traceViewport, traceEnvelopeIndices, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
     paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram
   });
 })(typeof window !== "undefined" ? window : globalThis);
