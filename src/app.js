@@ -1280,6 +1280,12 @@
       onViewChange(view) { syncAxisFields("registration", view); },
     });
 
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+      input.addEventListener("wheel", event => {
+        event.preventDefault();
+      }, { passive: false });
+    });
+
     document.querySelectorAll(".stage-button").forEach(button => {
       button.addEventListener("click", () => activateStage(Number(button.dataset.stage)));
     });

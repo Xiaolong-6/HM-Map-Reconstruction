@@ -382,3 +382,14 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
   pointer-events:none;
 }
 .map-scale .scale-bar { display:block; height:7px; border-radius:999px; }
+
+.parameter-group { margin:8px 0 10px; padding-top:2px; }
+.parameter-group + .parameter-group { border-top:1px solid #edf1f6; padding-top:9px; }
+.compact-panel .parameter-group h3 {
+  margin:0 0 3px;
+  color:#516078;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.035em;
+  text-transform:uppercase;
+}
