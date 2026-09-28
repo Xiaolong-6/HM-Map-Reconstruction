@@ -129,6 +129,8 @@
       rows_apart:Number(registration.rows_apart),row_offset:Number(registration.row_offset),point_a_s:Number(registration.point_a_s),
       point_b_s:Number(registration.point_b_s),points_apart:Number(registration.points_apart)
     };
+    const rawPointOffset=registration.point_offset==null?0:Number(registration.point_offset);
+    if(rows===0&&(common.row_offset>0||rawPointOffset>0))throw new Error("Invalid project offsets for unset geometry.");
     let reconstructionParams;
     const normalizerCommon=rows===0?Object.assign({},common,{rows:1,cols:1}):common;
     if(method==="dual_offset"){
@@ -144,8 +146,7 @@
       }));
     }
     if(rows===0){
-      const legacyPointOffset=registration.point_offset==null?0:Number(registration.point_offset);
-      if(reconstructionParams.row_offset!==0||legacyPointOffset!==0)throw new Error("Invalid project offsets for unset geometry.");
+      if(reconstructionParams.row_offset!==0||rawPointOffset!==0)throw new Error("Invalid project offsets for unset geometry.");
       reconstructionParams=Object.freeze(Object.assign({},reconstructionParams,{rows:0,cols:0}));
     }
     return Object.freeze({schema:root.schema,source:Object.freeze({...source}),method,reconstructionParams,processing,preparation,flip_y:Boolean(display.flip_y),metadata:root});
