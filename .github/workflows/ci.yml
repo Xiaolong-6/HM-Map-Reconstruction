@@ -79,7 +79,7 @@ jobs:
             --allow-file-access-from-files \
             --remote-debugging-port=9222 \
             --user-data-dir="$PROFILE" \
-            "file://$PWD/index.html" >/tmp/hm-map-chrome.out 2>/tmp/hm-map-chrome.err &
+            about:blank >/tmp/hm-map-chrome.out 2>/tmp/hm-map-chrome.err &
           CHROME_PID=$!
           trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
-          node tools/check_file_boot.mjs
+          FILE_URL="file://$PWD/index.html" node tools/check_file_boot.mjs

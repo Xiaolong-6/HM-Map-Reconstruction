@@ -53,14 +53,18 @@ function command(method, params = {}) {
 await command("Runtime.enable");
 await command("Page.enable");
 
+const fileUrl = process.env.FILE_URL;
+if (!fileUrl) throw new Error("FILE_URL is required.");
+await command("Page.navigate", { url: fileUrl });
+
 let state = null;
-for (let attempt = 0; attempt < 100; attempt += 1) {
+for (let attempt = 0; attempt < 150; attempt += 1) {
   const result = await command("Runtime.evaluate", {
-    expression: "({readyState:document.readyState,appReady:document.documentElement.dataset.appReady||null,url:location.href})",
+    expression: "({readyState:document.readyState,appReady:document.documentElement.dataset.appReady||null,url:location.href,api:typeof window.MapReconstructionWeb,appState:typeof (window.MapReconstructionWeb&&window.MapReconstructionWeb.appState)})",
     returnByValue: true,
   });
   state = result.result && result.result.value;
-  if (state && state.appReady === "true") break;
+  if (state && state.url === fileUrl && state.appReady === "true") break;
   await sleep(100);
 }
 
