@@ -77,6 +77,7 @@ jobs:
             --no-first-run \
             --no-default-browser-check \
             --allow-file-access-from-files \
+            --enable-precise-memory-info \
             --remote-debugging-port=9222 \
             --user-data-dir="$PROFILE" \
             about:blank >/tmp/hm-map-chrome.out 2>/tmp/hm-map-chrome.err &
@@ -84,6 +85,7 @@ jobs:
           trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
           FILE_URL="file://$PWD/index.html" node tools/check_file_boot.mjs
           FILE_URL="file://$PWD/index.html" SCREENSHOT_DIR="$PWD/dist/ui-review" node tools/browser_acceptance.mjs
+          FILE_URL="file://$PWD/index.html" node tools/browser_large_data.mjs
 
       - name: Build offline ZIP
         run: python tools/package_offline.py
