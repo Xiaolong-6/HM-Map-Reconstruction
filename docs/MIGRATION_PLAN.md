@@ -87,7 +87,7 @@ Oracle:
 - `test_happymeasure_importer.py`
 - source validation regressions.
 
-Status: prototype present; cross-runtime fixture gate pending.
+Status: complete; covered by the pinned cross-runtime oracle and CI.
 
 ## Phase 2 — Signal Preparation
 
@@ -105,7 +105,7 @@ Oracle:
 - `test_preparation.py`
 - preparation persistence tests.
 
-Status: prototype present; cross-runtime fixture gate pending.
+Status: complete; covered by the pinned cross-runtime oracle and CI.
 
 ## Phase 3 — Reconstruction
 
@@ -125,7 +125,7 @@ Oracle:
 - `test_scan_orientation.py`
 - `test_matlab_dual_offset_parity.py`.
 
-Status: prototype present; cross-runtime fixture gate pending.
+Status: complete; covered by the pinned cross-runtime oracle and CI.
 
 ## Phase 4 — Processing and distribution
 
@@ -145,7 +145,7 @@ Oracle:
 - `test_distribution.py`
 - `test_display_units.py`.
 
-Status: prototype present; cross-runtime fixture gate pending.
+Status: complete; covered by the pinned cross-runtime oracle and CI.
 
 ## Phase 5 — .hmmap compatibility
 
@@ -166,11 +166,11 @@ Acceptance:
 - Python-created projects open equivalently in Web;
 - Web-created projects open equivalently in Python.
 
-Status: implementation present; bidirectional fixture gate is implemented in CI and pending green validation.
+Status: complete for generated v1/v2/v3 compatibility fixtures; Python-created projects open in Web and Web-created projects validate in the pinned Python implementation.
 
 ## Phase 6 — cross-runtime scientific parity
 
-Status: CI implementation added; pending green validation.
+Status: complete; CI is green against the pinned HappyMeasure oracle.
 
 Deliverables:
 
@@ -188,16 +188,26 @@ Acceptance:
 
 ## Phase 7 — UI, browser, performance and offline acceptance
 
-After Phase 6 is green:
+Status: active; automated gates are partially complete.
 
-- refine three-stage UI;
-- test realistic large datasets and browser memory;
-- validate direct `file://` operation;
-- validate target desktop browsers;
-- package a small offline ZIP;
-- optionally add static hosting;
-- compare artifact size/startup with the Qt portable build;
-- perform screenshot-based visual review with representative datasets.
+Completed or implemented:
+
+- fixed-viewport three-stage layout with page scrolling disabled;
+- independent scrolling inside the controls and scientific workspace columns;
+- engineering display units without changing stored SI values;
+- display-only palette, color range, Y orientation and histogram range controls;
+- prepared-trace CSV, raw-map CSV, processed-map CSV + JSON sidecar, parameter-summary TXT and self-contained HTML-report exports;
+- direct browser project open/save using existing `.hmmap` schemas;
+- deterministic large-data smoke: 120,000 source samples through import, preparation, 100×100 reconstruction, processing and histogram;
+- CI gate for direct `file://` boot in headless Chrome.
+
+Still required before desktop replacement:
+
+- screenshot-based browser review with representative measurements;
+- historical user-created `.hmmap` corpus, because HappyMeasure does not contain committed real `.hmmap` fixtures;
+- representative real HappyMeasure CSV corpus beyond synthetic/oracle fixtures;
+- browser-memory review on larger real files;
+- final offline ZIP/artifact-size comparison with the Qt portable build.
 
 ## Final replacement gate
 
