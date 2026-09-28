@@ -34,7 +34,7 @@ jobs:
 
       - name: JavaScript syntax check
         run: |
-          for file in src/*.js tests/*.js tools/*.js; do
+          for file in src/*.js tests/*.js tools/*.js tools/*.mjs; do
             node --check "$file"
           done
 
@@ -83,9 +83,18 @@ jobs:
           CHROME_PID=$!
           trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
           FILE_URL="file://$PWD/index.html" node tools/check_file_boot.mjs
+          FILE_URL="file://$PWD/index.html" SCREENSHOT_DIR="$PWD/dist/ui-review" node tools/browser_acceptance.mjs
 
       - name: Build offline ZIP
         run: python tools/package_offline.py
+
+      - name: Upload browser UI review
+        uses: actions/upload-artifact@v4
+        with:
+          name: HM-Map-Reconstruction-ui-review
+          path: dist/ui-review/*.png
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Enforce lightweight offline package
         run: |

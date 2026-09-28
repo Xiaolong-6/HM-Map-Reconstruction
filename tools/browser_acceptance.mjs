@@ -1,0 +1,313 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+const endpoint = process.env.CDP_ENDPOINT || "http://127.0.0.1:9222";
+const fileUrl = process.env.FILE_URL;
+const screenshotDir = process.env.SCREENSHOT_DIR || "dist/ui-review";
+const fixturePath = path.resolve(process.env.FIXTURE_PATH || "/tmp/hm-map-browser-acceptance.csv");
+if (!fileUrl) throw new Error("FILE_URL is required.");
+
+async function sleep(ms) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function pageTargets() {
+  const response = await fetch(endpoint + "/json/list");
+  if (!response.ok) throw new Error("CDP page list failed: " + response.status);
+  return response.json();
+}
+
+let targets = [];
+for (let attempt = 0; attempt < 100; attempt += 1) {
+  try {
+    targets = await pageTargets();
+    if (targets.length) break;
+  } catch (_) {}
+  await sleep(150);
+}
+const target = targets.find(item => item.type === "page");
+if (!target || !target.webSocketDebuggerUrl) throw new Error("No Chrome page target.");
+
+const socket = new WebSocket(target.webSocketDebuggerUrl);
+await new Promise((resolve, reject) => {
+  socket.addEventListener("open", resolve, { once: true });
+  socket.addEventListener("error", reject, { once: true });
+});
+
+let nextId = 1;
+const pending = new Map();
+const exceptions = [];
+socket.addEventListener("message", event => {
+  const message = JSON.parse(event.data);
+  if (message.id && pending.has(message.id)) {
+    const current = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) current.reject(new Error(JSON.stringify(message.error)));
+    else current.resolve(message.result);
+  } else if (message.method === "Runtime.exceptionThrown") {
+    exceptions.push(message.params.exceptionDetails);
+  }
+});
+
+function command(method, params = {}) {
+  const id = nextId++;
+  socket.send(JSON.stringify({ id, method, params }));
+  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+}
+
+async function evaluate(expression) {
+  const result = await command("Runtime.evaluate", {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (result.exceptionDetails) {
+    throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
+  }
+  return result.result?.value;
+}
+
+async function waitFor(expression, label, timeoutMs = 10000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const value = await evaluate(expression);
+    if (value) return value;
+    await sleep(80);
+  }
+  throw new Error("Timed out waiting for " + label + ". Exceptions=" + JSON.stringify(
+    exceptions.map(item => item.exception?.description || item.text)
+  ));
+}
+
+async function click(id) {
+  const ok = await evaluate(`(() => {
+    const node=document.getElementById(${JSON.stringify(id)});
+    if(!node) return false;
+    node.click();
+    return true;
+  })()`);
+  if (!ok) throw new Error("Missing clickable #" + id);
+  await sleep(120);
+}
+
+async function setValue(id, value, eventType = "input") {
+  const ok = await evaluate(`(() => {
+    const node=document.getElementById(${JSON.stringify(id)});
+    if(!node) return false;
+    node.value=${JSON.stringify(String(value))};
+    node.dispatchEvent(new Event(${JSON.stringify(eventType)},{bubbles:true}));
+    return true;
+  })()`);
+  if (!ok) throw new Error("Missing input #" + id);
+  await sleep(80);
+}
+
+async function screenshot(name) {
+  await mkdir(screenshotDir, { recursive: true });
+  const result = await command("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: false,
+    fromSurface: true,
+  });
+  await writeFile(path.join(screenshotDir, name + ".png"), Buffer.from(result.data, "base64"));
+}
+
+async function layoutContract(stageNumber) {
+  const result = await evaluate(`(() => {
+    const stage=document.querySelector(".stage.active");
+    const control=stage?.querySelector(".control-panel");
+    const workspace=stage?.querySelector(".workspace");
+    const rect=stage?.getBoundingClientRect();
+    return {
+      stage:Number(document.querySelector(".stage-button.active")?.dataset.stage),
+      bodyOverflow:getComputedStyle(document.body).overflowY,
+      scrollHeight:document.scrollingElement.scrollHeight,
+      scrollWidth:document.scrollingElement.scrollWidth,
+      innerHeight,innerWidth,
+      controlOverflow:control?getComputedStyle(control).overflowY:null,
+      workspaceOverflow:workspace?getComputedStyle(workspace).overflowY:null,
+      top:rect?.top,bottom:rect?.bottom,
+    };
+  })()`);
+  if (
+    result.stage !== stageNumber ||
+    result.bodyOverflow !== "hidden" ||
+    result.controlOverflow !== "auto" ||
+    result.workspaceOverflow !== "auto" ||
+    result.scrollHeight > result.innerHeight + 1 ||
+    result.scrollWidth > result.innerWidth + 1 ||
+    result.top < -1 || result.bottom > result.innerHeight + 1
+  ) {
+    throw new Error("Stage " + stageNumber + " layout contract failed: " + JSON.stringify(result));
+  }
+}
+
+await command("Runtime.enable");
+await command("Page.enable");
+await command("DOM.enable");
+await command("Input.setIgnoreInputEvents", { ignore: false });
+await command("Emulation.setDeviceMetricsOverride", {
+  width: 1600, height: 900, deviceScaleFactor: 1, mobile: false,
+});
+await command("Page.navigate", { url: fileUrl });
+await waitFor(
+  'document.documentElement.dataset.appReady==="true"',
+  "application boot"
+);
+
+// Build a generic table with dense time sampling and repeatable signal content.
+const lines = ["time,current,aux"];
+for (let index = 0; index <= 2400; index += 1) {
+  const t = index * 0.05;
+  const pixel = Math.floor((t % 10) / 1);
+  const row = Math.floor(t / 10);
+  const current = 1e-6 * (1 + row * 0.1 + pixel * 0.03) + 1e-8 * Math.sin(index * 0.2);
+  lines.push(t.toFixed(4) + "," + current.toPrecision(12) + "," + (index % 17));
+}
+await writeFile(fixturePath, lines.join("\n") + "\n", "utf8");
+
+// Set the real file input through CDP.
+const documentNode = await command("DOM.getDocument", { depth: -1, pierce: true });
+const inputNode = await command("DOM.querySelector", {
+  nodeId: documentNode.root.nodeId,
+  selector: "#csv-file",
+});
+if (!inputNode.nodeId) throw new Error("Could not find #csv-file.");
+await command("DOM.setFileInputFiles", {
+  nodeId: inputNode.nodeId,
+  files: [fixturePath],
+});
+await evaluate('document.getElementById("csv-file").dispatchEvent(new Event("change",{bubbles:true}))');
+await waitFor(
+  'document.getElementById("generic-import-controls").hidden===false && !document.getElementById("import-data-button").disabled',
+  "generic import mapping"
+);
+
+// Map time + current and commit.
+await evaluate(`(() => {
+  const time=document.getElementById("import-time-column");
+  const signals=document.getElementById("import-signal-columns");
+  for(const option of time.options) if(option.textContent.startsWith("time")) time.value=option.value;
+  for(const option of signals.options) option.selected=option.textContent.startsWith("current");
+  return true;
+})()`);
+await click("import-data-button");
+await waitFor(
+  'window.MapReconstructionWeb.appState.source?.sampleCount===2401',
+  "generic source commit"
+);
+await layoutContract(1);
+await screenshot("01-import-data");
+
+// Step 2: Preparation plot.
+await click("continue-preparation-button");
+await waitFor(
+  'document.querySelector(".stage-button.active")?.dataset.stage==="2"',
+  "Signal Preparation stage"
+);
+await waitFor(
+  'document.getElementById("trace-canvas").width>1 && document.getElementById("prep-x-min").value!==""',
+  "preparation trace render"
+);
+const beforeZoom = await evaluate('Number(document.getElementById("prep-x-max").value)-Number(document.getElementById("prep-x-min").value)');
+await evaluate(`(() => {
+  const canvas=document.getElementById("trace-canvas");
+  const r=canvas.getBoundingClientRect();
+  canvas.dispatchEvent(new WheelEvent("wheel",{
+    deltaY:-320,clientX:r.left+r.width*0.55,clientY:r.top+r.height*0.5,
+    bubbles:true,cancelable:true
+  }));
+  return true;
+})()`);
+await sleep(180);
+const afterZoom = await evaluate('Number(document.getElementById("prep-x-max").value)-Number(document.getElementById("prep-x-min").value)');
+if (!(afterZoom < beforeZoom)) throw new Error("Preparation wheel zoom did not change X range.");
+await click("prep-autoscale");
+
+// Draw one real dark region using mouse input.
+await click("add-dark-region");
+const traceRect = await evaluate(`(() => {
+  const r=document.getElementById("trace-canvas").getBoundingClientRect();
+  return {left:r.left,top:r.top,width:r.width,height:r.height};
+})()`);
+const y = traceRect.top + traceRect.height * 0.45;
+const x1 = traceRect.left + 105;
+const x2 = traceRect.left + 245;
+await command("Input.dispatchMouseEvent",{type:"mousePressed",x:x1,y,button:"left",clickCount:1});
+await command("Input.dispatchMouseEvent",{type:"mouseMoved",x:x2,y,button:"left",buttons:1});
+await command("Input.dispatchMouseEvent",{type:"mouseReleased",x:x2,y,button:"left",clickCount:1});
+await waitFor(
+  'document.getElementById("manual-regions").value.includes(",")',
+  "dark-region drag"
+);
+await layoutContract(2);
+await screenshot("02-signal-preparation");
+
+// Step 3: set a viable phase-window registration.
+await click("continue-reconstruction-button");
+await setValue("map-rows",5);
+await setValue("map-cols",5);
+await setValue("row-a",10);
+await setValue("row-b",60);
+await setValue("rows-apart",5);
+await setValue("row-offset",0);
+await setValue("point-a",1);
+await setValue("point-b",5);
+await setValue("points-apart",4);
+await setValue("y-phase",0);
+await setValue("x-period-offset",0);
+await setValue("x-phase",0.5);
+await setValue("window-fraction",0.65);
+await click("reconstruct-button");
+await waitFor(
+  'window.MapReconstructionWeb.appState.reconstruction?.values?.length===25',
+  "phase-window reconstruction"
+);
+const finitePixels = await evaluate(
+  'Array.from(window.MapReconstructionWeb.appState.reconstruction.values).filter(Number.isFinite).length'
+);
+if (finitePixels < 20) throw new Error("Too few finite reconstructed pixels: " + finitePixels);
+
+// Drag YA marker and ensure numeric value changes + reconstruction returns.
+const markerBefore = await evaluate('Number(document.getElementById("row-a").value)');
+const regGeometry = await evaluate(`(() => {
+  const c=document.getElementById("registration-trace-canvas");
+  const r=c.getBoundingClientRect();
+  const xmin=Number(document.getElementById("registration-x-min").value);
+  const xmax=Number(document.getElementById("registration-x-max").value);
+  const marker=Number(document.getElementById("row-a").value);
+  const left=r.left+68, right=r.right-24;
+  const x=left+(marker-xmin)/(xmax-xmin)*(right-left);
+  return {x,y:r.top+80};
+})()`);
+await command("Input.dispatchMouseEvent",{type:"mousePressed",x:regGeometry.x,y:regGeometry.y,button:"left",clickCount:1});
+await command("Input.dispatchMouseEvent",{type:"mouseMoved",x:regGeometry.x+30,y:regGeometry.y,button:"left",buttons:1});
+await command("Input.dispatchMouseEvent",{type:"mouseReleased",x:regGeometry.x+30,y:regGeometry.y,button:"left",clickCount:1});
+await sleep(250);
+const markerAfter = await evaluate('Number(document.getElementById("row-a").value)');
+if (!(markerAfter > markerBefore)) throw new Error("YA marker drag did not update row-a.");
+await waitFor(
+  'window.MapReconstructionWeb.appState.reconstruction?.values?.length===25',
+  "reconstruction after marker drag"
+);
+await layoutContract(3);
+await screenshot("03-reconstruction");
+
+// Step 4: analysis is generated from the reconstructed map.
+await evaluate('document.querySelector(".stage-button[data-stage=\"4\"]").click()');
+await waitFor(
+  'document.querySelector(".stage-button.active")?.dataset.stage==="4" && window.MapReconstructionWeb.appState.processed?.values?.length===25',
+  "Map Analysis stage"
+);
+await layoutContract(4);
+await screenshot("04-map-analysis");
+
+socket.close();
+console.log(JSON.stringify({
+  sampleCount: 2401,
+  finitePixels,
+  darkRegions: await Promise.resolve(true),
+  markerBefore,
+  markerAfter,
+  screenshots: ["01-import-data","02-signal-preparation","03-reconstruction","04-map-analysis"],
+}, null, 2));
