@@ -40,3 +40,16 @@ test("project state rejects v1 paired with phase-window method",async()=>{
  root.registration.method="dual_offset_phase_window";
  assert.throws(()=>api.project.validateProject(root),/Version 1/);
 });
+
+
+test("partial project with unset geometry remains a valid workspace",async()=>{
+ const built=await api.project.createProjectBytes(options());
+ const root=JSON.parse(JSON.stringify(built.metadata));
+ root.geometry.rows=0;root.geometry.columns=0;root.registration.row_offset=0;root.registration.point_offset=0;
+ const state=api.project.validateProject(root);
+ assert.equal(state.reconstructionParams.rows,0);assert.equal(state.reconstructionParams.cols,0);
+ root.geometry.columns=1;
+ assert.throws(()=>api.project.validateProject(root),/both be set or both be zero/);
+ root.geometry.columns=0;root.registration.point_offset=1;
+ assert.throws(()=>api.project.validateProject(root),/offsets for unset geometry/);
+});

@@ -107,13 +107,34 @@
     drawTraces(canvas, timeS, [{ values }], options);
   }
 
+  function heatmapBounds(values, options) {
+    const finite = Array.from(values || []).filter(Number.isFinite);
+    if (!finite.length) return null;
+    const requested = options && options.levels;
+    let minimum, maximum;
+    if (requested && Number.isFinite(requested.minimum) && Number.isFinite(requested.maximum) && requested.minimum < requested.maximum) {
+      minimum = requested.minimum;
+      maximum = requested.maximum;
+    } else {
+      minimum = Math.min(...finite);
+      maximum = Math.max(...finite);
+      if (maximum === minimum) { minimum -= 0.5; maximum += 0.5; }
+    }
+    return Object.freeze({ minimum, maximum });
+  }
+
+  function heatmapDisplayIndex(index, rows, cols, flipY) {
+    const row = Math.floor(index / cols), col = index % cols;
+    const displayRow = flipY ? rows - 1 - row : row;
+    return displayRow * cols + col;
+  }
+
   function drawHeatmap(canvas, values, rows, cols, options) {
     const context = clearCanvas(canvas);
     if (!rows || !cols || !values || values.length !== rows * cols) return;
-    const finite = Array.from(values).filter(Number.isFinite);
-    if (!finite.length) return;
-    let minimum = Math.min(...finite), maximum = Math.max(...finite);
-    if (maximum === minimum) { minimum -= 0.5; maximum += 0.5; }
+    const limits = heatmapBounds(values, options);
+    if (!limits) return;
+    const minimum = limits.minimum, maximum = limits.maximum;
 
     const source = document.createElement("canvas");
     source.width = cols; source.height = rows;
@@ -127,8 +148,9 @@
       const left = Math.floor(t), right = Math.min(stops.length - 1, left + 1), f = t - left;
       return [0,1,2].map(channel => Math.round(stops[left][channel] * (1 - f) + stops[right][channel] * f));
     }
+    const flipY = Boolean(options && options.flipY);
     for (let index = 0; index < values.length; index += 1) {
-      const target = index * 4, value = values[index];
+      const target = heatmapDisplayIndex(index, rows, cols, flipY) * 4, value = values[index];
       if (!Number.isFinite(value)) { image.data[target + 3] = 0; continue; }
       const color = colorAt((value - minimum) / (maximum - minimum));
       image.data[target] = color[0]; image.data[target + 1] = color[1]; image.data[target + 2] = color[2]; image.data[target + 3] = 255;
@@ -158,5 +180,5 @@
     context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+histogram.mean.toPrecision(5)+"  median="+histogram.median.toPrecision(5),margin.left,16);
   }
 
-  api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, drawHeatmap, drawHistogram });
+  api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram });
 })(typeof window !== "undefined" ? window : globalThis);

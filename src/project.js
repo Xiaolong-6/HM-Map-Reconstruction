@@ -120,24 +120,33 @@
     if(root.schema==="map-reconstruction-project-v1"&&method!=="dual_offset")throw new Error("Version 1 projects must use Legacy Dual Offset.");
     const processing=processingFromProject(root.map_processing||root.processing);
     const preparation=preparationFromProject(root,source.signal);
+    const rows=Number(geometry.rows),cols=Number(geometry.columns);
+    if(!Number.isInteger(rows)||rows<0||!Number.isInteger(cols)||cols<0)throw new Error("Invalid project geometry dimensions.");
+    if(Boolean(rows)!==Boolean(cols))throw new Error("Invalid project geometry: rows and columns must both be set or both be zero.");
     const common={
-      rows:Number(geometry.rows),cols:Number(geometry.columns),scan_pattern:geometry.scan_pattern,
+      rows,cols,scan_pattern:geometry.scan_pattern,
       first_row_ltr:Boolean(geometry.first_row_ltr),row_a_s:Number(registration.row_a_s),row_b_s:Number(registration.row_b_s),
       rows_apart:Number(registration.rows_apart),row_offset:Number(registration.row_offset),point_a_s:Number(registration.point_a_s),
       point_b_s:Number(registration.point_b_s),points_apart:Number(registration.points_apart)
     };
     let reconstructionParams;
+    const normalizerCommon=rows===0?Object.assign({},common,{rows:1,cols:1}):common;
     if(method==="dual_offset"){
-      reconstructionParams=api.reconstruction.normalizeDualOffsetParams(Object.assign(common,{
+      reconstructionParams=api.reconstruction.normalizeDualOffsetParams(Object.assign(normalizerCommon,{
         point_offset:Number(registration.point_offset),use_median:geometry.aggregation==="median"
       }));
     }else{
-      reconstructionParams=api.reconstruction.normalizePhaseWindowParams(Object.assign(common,{
+      reconstructionParams=api.reconstruction.normalizePhaseWindowParams(Object.assign(normalizerCommon,{
         y_phase_fraction:Number(registration.y_phase_fraction),x_period_offset:Number(registration.x_period_offset),
         x_phase_fraction:Number(registration.x_phase_fraction),window_mode:registration.window_mode,
         window_fraction:Number(registration.window_fraction),window_duration_s:registration.window_duration_s,
         aggregation:geometry.aggregation
       }));
+    }
+    if(rows===0){
+      const legacyPointOffset=registration.point_offset==null?0:Number(registration.point_offset);
+      if(reconstructionParams.row_offset!==0||legacyPointOffset!==0)throw new Error("Invalid project offsets for unset geometry.");
+      reconstructionParams=Object.freeze(Object.assign({},reconstructionParams,{rows:0,cols:0}));
     }
     return Object.freeze({schema:root.schema,source:Object.freeze({...source}),method,reconstructionParams,processing,preparation,flip_y:Boolean(display.flip_y),metadata:root});
   }

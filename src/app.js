@@ -335,13 +335,14 @@
       state.reconstruction.values,
       state.reconstruction.rows,
       state.reconstruction.cols,
+      { flipY: state.flipY },
     );
     api.plotting.drawHeatmap(
       countCanvas,
       state.reconstruction.sample_counts,
       state.reconstruction.rows,
       state.reconstruction.cols,
-      { counts: true },
+      { counts: true, flipY: state.flipY },
     );
   }
 
@@ -356,19 +357,27 @@
     byId("hist-width-field").hidden = byId("hist-bin-mode").value !== "width";
   }
 
+  function optionalNumber(id) {
+    const text = byId(id).value.trim();
+    return text === "" ? null : Number(text);
+  }
+
   function analysisConfig() {
+    const baselineMode = byId("map-baseline").value;
+    const normalization = byId("map-normalization").value;
+    const colorRangeMode = byId("color-range-mode").value;
     return {
-      baseline_mode: byId("map-baseline").value,
-      baseline_value: Number(byId("map-baseline-value").value),
+      baseline_mode: baselineMode,
+      baseline_value: baselineMode === "manual" ? optionalNumber("map-baseline-value") : null,
       baseline_percentile: Number(byId("map-baseline-percentile").value),
       transform: byId("map-transform").value,
       custom_expression: byId("custom-expression").value,
-      normalization: byId("map-normalization").value,
-      normalization_reference: Number(byId("normalization-reference").value),
+      normalization,
+      normalization_reference: normalization === "reference" ? optionalNumber("normalization-reference") : null,
       value_scale: byId("value-scale").value,
-      color_range_mode: byId("color-range-mode").value,
-      color_min: Number(byId("color-min").value),
-      color_max: Number(byId("color-max").value),
+      color_range_mode: colorRangeMode,
+      color_min: colorRangeMode === "manual" ? optionalNumber("color-min") : null,
+      color_max: colorRangeMode === "manual" ? optionalNumber("color-max") : null,
       percentile_low: Number(byId("color-low").value),
       percentile_high: Number(byId("color-high").value),
     };
@@ -540,6 +549,7 @@
       setControl("normalization-reference", proc.normalization_reference);
     }
     setControl("value-scale", proc.value_scale);
+    setControl("flip-y", state.flipY);
     setControl("color-range-mode", proc.color_range_mode);
     if (proc.color_min != null) setControl("color-min", proc.color_min);
     if (proc.color_max != null) setControl("color-max", proc.color_max);
@@ -553,7 +563,17 @@
     byId("metadata-view").textContent = JSON.stringify(state.source.metadata, null, 2);
 
     recomputePreparation();
-    if (state.prepared) reconstruct();
+    if (state.prepared && params.rows > 0 && params.cols > 0) {
+      reconstruct();
+    } else if (state.prepared) {
+      state.reconstructionParams = params;
+      byId("save-project-button").disabled = !state.rawBytes;
+      setStatus(
+        "reconstruction-status",
+        "Project opened with geometry unset. Set rows and columns, then reconstruct.",
+      );
+      updateStageAvailability();
+    }
     activateStage(2);
   }
 
@@ -701,6 +721,12 @@
         id === "custom-expression" ? "input" : "change",
         recomputeAnalysis,
       );
+    });
+
+    byId("flip-y").addEventListener("change", event => {
+      state.flipY = event.target.checked;
+      renderReconstruction();
+      renderAnalysis();
     });
 
     byId("reconstruct-button").addEventListener("click", reconstruct);
