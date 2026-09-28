@@ -402,7 +402,7 @@
       state.reconstruction.values,
       state.reconstruction.rows,
       state.reconstruction.cols,
-      { flipY: state.flipY },
+      { flipY: state.flipY, palette: byId("map-palette").value, inverted: byId("invert-palette").checked },
     );
     api.plotting.drawHeatmap(
       countCanvas,
@@ -546,7 +546,12 @@
         state.processed.values,
         state.reconstruction.rows,
         state.reconstruction.cols,
-        { levels: state.colorLimits, flipY: state.flipY },
+        {
+          levels: state.colorLimits,
+          flipY: state.flipY,
+          palette: byId("map-palette").value,
+          inverted: byId("invert-palette").checked,
+        },
       );
     } else {
       mapEmpty.classList.remove("hidden");
@@ -827,6 +832,15 @@
 
     byId("flip-y").addEventListener("change", event => {
       state.flipY = event.target.checked;
+      renderReconstruction();
+      renderAnalysis();
+    });
+
+    byId("map-palette").addEventListener("change", () => {
+      renderReconstruction();
+      renderAnalysis();
+    });
+    byId("invert-palette").addEventListener("change", () => {
       renderReconstruction();
       renderAnalysis();
     });

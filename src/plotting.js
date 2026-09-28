@@ -109,6 +109,22 @@
     drawTraces(canvas, timeS, [{ values }], options);
   }
 
+  const PALETTES = Object.freeze({
+    Viridis: Object.freeze([[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]]),
+    Plasma: Object.freeze([[13,8,135],[126,3,168],[204,71,120],[248,149,64],[240,249,33]]),
+    Inferno: Object.freeze([[0,0,4],[87,15,109],[187,55,84],[249,142,8],[252,255,164]]),
+    Magma: Object.freeze([[0,0,4],[81,18,124],[183,55,121],[251,135,97],[252,253,191]]),
+    Cividis: Object.freeze([[0,32,77],[40,80,113],[87,117,119],[149,151,111],[253,234,69]]),
+    Grayscale: Object.freeze([[0,0,0],[255,255,255]]),
+  });
+
+  function paletteStops(name, inverted) {
+    const source = PALETTES[name] || PALETTES.Viridis;
+    const stops = source.map(rgb => rgb.slice());
+    if (inverted) stops.reverse();
+    return stops;
+  }
+
   function heatmapBounds(values, options) {
     const finite = Array.from(values || []).filter(Number.isFinite);
     if (!finite.length) return null;
@@ -144,7 +160,10 @@
     const image = sourceContext.createImageData(cols, rows);
     const stops = (options && options.counts)
       ? [[239,246,255],[96,165,250],[23,62,140]]
-      : [[68,1,84],[49,104,142],[53,183,121],[253,231,37]];
+      : paletteStops(
+          options && options.palette ? options.palette : "Viridis",
+          Boolean(options && options.inverted),
+        );
     function colorAt(fraction) {
       const t = Math.max(0, Math.min(1, fraction)) * (stops.length - 1);
       const left = Math.floor(t), right = Math.min(stops.length - 1, left + 1), f = t - left;
@@ -185,5 +204,5 @@
     context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+(histogram.mean*scale).toPrecision(5)+suffix+"  median="+(histogram.median*scale).toPrecision(5)+suffix,margin.left,16);
   }
 
-  api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram });
+  api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -14,3 +14,13 @@ test("heatmap flip Y changes only display row ordering",()=>{
   assert.equal(p.heatmapDisplayIndex(0,rows,cols,true),3);
   assert.equal(p.heatmapDisplayIndex(5,rows,cols,true),2);
 });
+
+
+test("named palettes and inversion are display-only lookup choices",()=>{
+  const viridis=p.paletteStops("Viridis",false);
+  const inverted=p.paletteStops("Viridis",true);
+  assert.deepEqual(inverted[0],viridis[viridis.length-1]);
+  assert.deepEqual(inverted[inverted.length-1],viridis[0]);
+  assert.notDeepEqual(p.paletteStops("Plasma",false),viridis);
+  assert.deepEqual(p.paletteStops("unknown",false),viridis);
+});
