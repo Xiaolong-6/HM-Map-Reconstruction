@@ -294,7 +294,7 @@ await layoutContract(3);
 await screenshot("03-reconstruction");
 
 // Step 4: analysis is generated from the reconstructed map.
-await evaluate('document.querySelector(".stage-button[data-stage=\"4\"]").click()');
+await evaluate("document.querySelector('.stage-button[data-stage=\"4\"]').click()");
 await waitFor(
   'document.querySelector(".stage-button.active")?.dataset.stage==="4" && window.MapReconstructionWeb.appState.processed?.values?.length===25',
   "Map Analysis stage"
