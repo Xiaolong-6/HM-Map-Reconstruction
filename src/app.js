@@ -18,7 +18,8 @@
     document.querySelectorAll(".stage").forEach(node => node.classList.toggle("active", node.id === "stage-" + stage));
     document.querySelectorAll(".stage-button").forEach(node => node.classList.toggle("active", Number(node.dataset.stage) === stage));
     if (stage === 1) renderTrace();
-    if (stage === 2) renderReconstruction();\n    if (stage === 3) renderAnalysis();
+    if (stage === 2) renderReconstruction();
+    if (stage === 3) renderAnalysis();
   }
   function updateStageAvailability() {
     const stage2 = document.querySelector('.stage-button[data-stage="2"]');
@@ -142,7 +143,9 @@
         "</dd><dt>Shape</dt><dd>" + state.reconstruction.rows + " × " + state.reconstruction.cols +
         "</dd><dt>Finite pixels</dt><dd>" + finite + " / " + state.reconstruction.values.length +
         "</dd><dt>Warnings</dt><dd>" + state.reconstruction.warnings.length + "</dd></dl>";
-      setStatus("reconstruction-status", "Reconstruction complete.", "ok");\n      byId("save-project-button").disabled=!state.rawBytes;\n      recomputeAnalysis();
+      setStatus("reconstruction-status", "Reconstruction complete.", "ok");
+      byId("save-project-button").disabled = !state.rawBytes;
+      recomputeAnalysis();
     } catch (error) {
       state.reconstruction = null;
       byId("reconstruction-summary").className = "summary empty";
@@ -220,12 +223,14 @@
 
   function init() {
     document.querySelectorAll(".stage-button").forEach(button => button.addEventListener("click", () => activateStage(Number(button.dataset.stage))));
-    byId("csv-file").addEventListener("change", event => loadFile(event.target.files && event.target.files[0]));\n    byId("project-file").addEventListener("change",event=>loadProjectFile(event.target.files&&event.target.files[0]));
+    byId("csv-file").addEventListener("change", event => loadFile(event.target.files && event.target.files[0]));
+    byId("project-file").addEventListener("change", event => loadProjectFile(event.target.files && event.target.files[0]));
     byId("signal-select").addEventListener("change", event => { state.signal = event.target.value; recomputePreparation(); });
     ["dark-mode","constant-baseline","manual-regions","manual-fit","rolling-window","rolling-quantile","rolling-trend","response-direction","apply-baseline","invert-signal","gate-enabled","gate-min","gate-max"]
       .forEach(id => byId(id).addEventListener(id === "manual-regions" ? "input" : "change", recomputePreparation));
     ["reconstruction-method","window-mode"].forEach(id => byId(id).addEventListener("change", syncReconstructionControls));
-    byId("reconstruct-button").addEventListener("click", reconstruct);\n    byId("save-project-button").addEventListener("click",saveProject);
+    byId("reconstruct-button").addEventListener("click", reconstruct);
+    byId("save-project-button").addEventListener("click", saveProject);
     root.addEventListener("resize", function () { if (state.activeStage === 1) renderTrace(); else if (state.activeStage === 2) renderReconstruction(); else if(state.activeStage===3) renderAnalysis(); });
     syncPreparationControls(); syncReconstructionControls(); syncAnalysisControls(); renderPreparedSummary(); renderTrace(); renderReconstruction(); renderAnalysis(); updateStageAvailability();
   }
