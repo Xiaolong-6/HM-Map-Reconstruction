@@ -21,6 +21,8 @@
   const byId = id => document.getElementById(id);
   let prepPlotController = null;
   let registrationPlotController = null;
+  let reconstructionTimer = null;
+  let reconstructionQueued = false;
 
   function setStatus(id, message, kind) {
     const node = byId(id);
@@ -115,6 +117,7 @@
     if (stage === 3) {
       renderRegistrationTrace();
       renderReconstruction();
+      if (!state.reconstruction) scheduleReconstruction(0);
     }
     if (stage === 4) renderAnalysis();
   }
@@ -379,6 +382,7 @@
       renderPreparedSummary();
       renderTrace();
       renderRegistrationTrace();
+      if (state.activeStage >= 3) scheduleReconstruction(0);
       setStatus("status", "Preparation preview updated.", "ok");
     } catch (error) {
       state.prepared = null;
@@ -411,6 +415,19 @@
     };
   }
 
+  function scheduleReconstruction(delayMs) {
+    if (!state.prepared || !state.signal) return;
+    if (reconstructionTimer != null) clearTimeout(reconstructionTimer);
+    reconstructionQueued = true;
+    const delay = Math.max(0, Number(delayMs == null ? 70 : delayMs));
+    reconstructionTimer = setTimeout(() => {
+      reconstructionTimer = null;
+      if (!reconstructionQueued) return;
+      reconstructionQueued = false;
+      reconstruct();
+    }, delay);
+  }
+
   function reconstruct() {
     if (!state.prepared || !state.signal) return;
     syncReconstructionControls();
@@ -434,7 +451,7 @@
         state.reconstructionParams,
       );
       byId("save-project-button").disabled = !state.rawBytes;
-      setStatus("reconstruction-status", "Reconstruction updated.", "ok");
+      setStatus("reconstruction-status", "Reconstruction updated automatically.", "ok");
     } catch (error) {
       state.reconstruction = null;
       state.reconstructionParams = null;
@@ -1068,9 +1085,12 @@
       onMarkerMove(id, value, finished) {
         setControl(id, Number(value).toPrecision(9));
         renderRegistrationTrace();
+        scheduleReconstruction(finished ? 0 : 55);
         if (finished) {
-          reconstruct();
-          setStatus("reconstruction-status", id.toUpperCase().replace("ROW-","Y").replace("POINT-","X") + " marker updated.", "ok");
+          setStatus(
+            "reconstruction-status",
+            id.toUpperCase().replace("ROW-","Y").replace("POINT-","X") + " marker updated · recalculating…",
+          );
         }
       },
       onViewChange(view) { syncAxisFields("registration", view); },
@@ -1159,6 +1179,7 @@
       syncReconstructionControls();
       invalidateReconstruction();
       renderRegistrationTrace();
+      scheduleReconstruction(0);
     });
     [
       "map-rows","map-cols","scan-pattern","first-row-direction",
@@ -1166,9 +1187,14 @@
       "point-a","point-b","points-apart",
       "y-phase","x-period-offset","x-phase","window-fraction","window-duration","phase-aggregation",
     ].forEach(id => {
-      byId(id).addEventListener(id === "scan-pattern" || id === "first-row-direction" || id === "phase-aggregation" ? "change" : "input", () => {
+      const eventName =
+        id === "scan-pattern" || id === "first-row-direction" || id === "phase-aggregation"
+          ? "change"
+          : "input";
+      byId(id).addEventListener(eventName, () => {
         invalidateReconstruction();
         renderRegistrationTrace();
+        scheduleReconstruction(eventName === "change" ? 0 : 90);
       });
     });
 
@@ -1214,7 +1240,6 @@
       renderAnalysis();
     });
 
-    byId("reconstruct-button").addEventListener("click", reconstruct);
     byId("save-project-button").addEventListener("click", saveProject);
     byId("export-prepared-button").addEventListener("click", exportPrepared);
     byId("export-raw-button").addEventListener("click", exportRawMap);
