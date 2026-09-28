@@ -1,253 +1,121 @@
 # Map Reconstruction Web migration plan
 
-Status: active prototype in standalone private repository `Xiaolong-6/HM-Map-Reconstruction`.
+## Status
 
-## Goal
+The standalone Web replacement is in late acceptance.
 
-Replace the standalone Python/Qt Map Reconstruction application with a hardware-independent, offline-first static Web application while preserving the scientific workflow and existing project compatibility.
+Repository: `Xiaolong-6/HM-Map-Reconstruction`
 
-Workflow:
+Current workflow:
 
-1. Signal Preparation
-2. Reconstruction
-3. Map Analysis
+1. Import Data
+2. Signal Preparation
+3. Reconstruction
+4. Map Analysis
 
-Scientific parity and file compatibility take precedence over visual feature parity.
+The repository is public. The Web runtime is static and offline-capable.
 
-## Repository boundary
+## Scientific reference
 
-This repository owns the Web implementation:
-
-```text
-HM-Map-Reconstruction/
-  index.html
-  styles.css
-  package.json
-  src/
-  tests/
-  docs/
-  .github/
-```
-
-HappyMeasure remains unchanged during prototype development.
-
-## Pinned scientific oracle
-
-Initial reference:
+Pinned HappyMeasure oracle:
 
 - repository: `Xiaolong-6/HappyMeasure`
 - commit: `402b88f1c42cff41bf6054e1724bc62b4deb7af3`
-- scientific implementation: `src/map_reconstruction/`
+- reference implementation: `src/map_reconstruction/`
 - reference tests: `tests/map_reconstruction/`
 
-The former HappyMeasure branch `feat/map-reconstruction-web-prototype` contains migration scaffolding only. The authoritative scientific behavior is the unchanged Python implementation at the pinned reference commit.
+Do not silently move this pin. If the desktop scientific behavior changes before final cutover, update the pin deliberately and regenerate parity expectations.
 
-If HappyMeasure's Map Reconstruction behavior changes before cutover, update the oracle pin deliberately and regenerate parity fixtures.
+## Completed
 
-## Non-negotiable invariants
+### Import
 
-- Raw imported data stays authoritative.
-- Preparation, reconstruction, processing and display code must not silently mutate source arrays.
-- Existing reconstruction semantics are ported, not redesigned during migration.
-- Existing `.hmmap` schemas v1/v2/v3 remain readable.
-- Do not introduce a new project schema unless compatibility requires and justifies it.
-- NaN/non-finite handling, window edge rules, scan orientation, aggregation, quantiles, medians, interpolation, polynomial fitting and histogram semantics require explicit parity tests.
-- Display-only controls remain display-only.
-- No hardware, serial, instrument or HappyMeasure application-state dependency enters this repository.
-- The production artifact remains static and usable offline.
-- Pyodide is not the primary architecture.
+- HappyMeasure `single-v2`;
+- generic numeric table mapping;
+- generated or explicit time;
+- multi-signal selection;
+- incomplete-row filtering;
+- drag/drop;
+- project open.
 
-## Phase 0 — standalone migration contract
+### Signal Preparation
 
-Deliverables:
+- none;
+- constant;
+- manual dark regions;
+- rolling quantile;
+- constant/linear/quadratic manual-region fit;
+- response-direction handling;
+- value gate;
+- independent baseline subtraction and inversion;
+- interactive trace and draggable dark regions.
 
-- dedicated repository and prototype branch;
-- pinned Python oracle;
-- migration plan;
-- dependency-light static architecture.
+### Reconstruction
 
-Acceptance:
+- Phase Window user workflow;
+- Legacy Dual Offset compatibility conversion;
+- same-direction and serpentine orientation;
+- mean/median aggregation;
+- sample-count QC;
+- draggable YA/YB/XA/XB;
+- automatic reconstruction on edits;
+- geometry-driven registration recommendation;
+- interactive map axes, colorbar, zoom and pan.
 
-- HappyMeasure production code is untouched.
+### Analysis
 
-Status: complete.
-
-## Phase 1 — CSV import
-
-Deliverables:
-
-- static page;
-- local HappyMeasure `single-v2` import;
-- metadata and signal selection;
-- stable time sort;
-- raw trace preview.
-
-Oracle:
-
-- `test_happymeasure_importer.py`
-- source validation regressions.
-
-Status: complete; covered by the pinned cross-runtime oracle and CI.
-
-## Phase 2 — Signal Preparation
-
-Deliverables:
-
-- none / constant / manual-region / rolling-quantile baseline models;
-- manual constant/linear/quadratic fit;
-- rolling trend modes;
-- photocurrent-direction envelope handling;
-- value-gated baseline candidates;
-- independent baseline subtraction and inversion.
-
-Oracle:
-
-- `test_preparation.py`
-- preparation persistence tests.
-
-Status: complete; covered by the pinned cross-runtime oracle and CI.
-
-## Phase 3 — Reconstruction
-
-Deliverables:
-
-- Legacy Dual Offset;
-- Dual Offset — Phase Window;
-- same-direction / serpentine orientation;
-- median / mean aggregation;
-- sample-count QC.
-
-Oracle:
-
-- `test_dual_offset.py`
-- `test_phase_window.py`
-- `test_reconstruction.py`
-- `test_scan_orientation.py`
-- `test_matlab_dual_offset_parity.py`.
-
-Status: complete; covered by the pinned cross-runtime oracle and CI.
-
-## Phase 4 — Processing and distribution
-
-Deliverables:
-
-- baseline modes;
-- raw / absolute / negate / restricted custom expressions;
+- map baseline;
+- transform;
 - normalization;
-- log10 behavior;
-- display-only color limits;
-- value distribution and histogram.
+- log10;
+- palette and range controls;
+- histogram;
+- processed exports and report.
 
-Oracle:
-
-- `test_processing.py`
-- `test_processing_nonfinite.py`
-- `test_distribution.py`
-- `test_display_units.py`.
-
-Status: complete; covered by the pinned cross-runtime oracle and CI.
-
-## Phase 5 — .hmmap compatibility
-
-Deliverables:
+### Project compatibility
 
 - read v1/v2/v3;
-- validate embedded source SHA-256;
-- restore scientific state;
-- export using existing schemas.
+- source SHA-256 verification;
+- Python-created → Web compatibility;
+- Web-created → Python validation;
+- browser Save → reopen round-trip.
 
-Oracle:
+### Browser/offline acceptance
 
-- `test_project_io.py`
-- `test_project_preparation_persistence.py`.
+- direct `file://` boot;
+- fixed-viewport desktop workflow;
+- 120,000-point browser gate;
+- offline ZIP;
+- self-contained static runtime.
 
-Acceptance:
+### Real-data acceptance
 
-- Python-created projects open equivalently in Web;
-- Web-created projects open equivalently in Python.
+Private historical acceptance has covered 5 projects and 7 HappyMeasure CSV files, including 36×36 / 50×50 geometry and manual-region preparation. The measurement corpus is not committed publicly.
 
-Status: complete for generated v1/v2/v3 compatibility fixtures; Python-created projects open in Web and Web-created projects validate in the pinned Python implementation.
+## Remaining replacement gate
 
-## Phase 6 — cross-runtime scientific parity
+Before deleting desktop Map Reconstruction from HappyMeasure:
 
-Status: complete; CI is green against the pinned HappyMeasure oracle.
-
-Deliverables:
-
-- deterministic inputs and expected outputs generated by the pinned Python oracle;
-- JS tests consuming those oracle fixtures;
-- exact comparison for enums, dimensions, masks, counts, orientation and serialized fields;
-- algorithm-specific floating-point tolerances only where necessary;
-- JS syntax checks;
-- end-to-end CI: import -> preparation -> reconstruction -> processing -> project compatibility.
-
-Acceptance:
-
-- CI fails on scientific drift;
-- no broad tolerance hides systematic discrepancies.
-
-## Phase 7 — UI, browser, performance and offline acceptance
-
-Status: active; automated gates are partially complete.
-
-Completed or implemented:
-
-- fixed-viewport three-stage layout with page scrolling disabled;
-- independent scrolling inside the controls and scientific workspace columns;
-- engineering display units without changing stored SI values;
-- display-only palette, color range, Y orientation and histogram range controls;
-- prepared-trace CSV, raw-map CSV, processed-map CSV + JSON sidecar, parameter-summary TXT and self-contained HTML-report exports;
-- direct browser project open/save using existing `.hmmap` schemas;
-- deterministic large-data smoke: 120,000 source samples through import, preparation, 100×100 reconstruction, processing and histogram;
-- CI gate for direct `file://` boot in headless Chrome;
-- browser layout contract at 1366×768 and 1760×900: no page scrollbar, no title header, control/workspace columns own the vertical scrolling;
-- offline ZIP packaging with a 2 MiB CI ceiling; current package is 43,207 bytes versus 52,647,228 bytes for the previous Qt Map Reconstruction portable ZIP (about 1,218× smaller).
-
-Real-data acceptance completed locally without committing measurement files:
-
-- 5 historical v3 `.hmmap` projects, all Phase Window and `Current_A`;
-- geometry coverage: three 36×36 maps and two 50×50 maps;
-- preparation coverage includes both `none` and `manual_regions`;
-- source sizes span 46,176–113,266 samples;
-- all 5 embedded-source SHA-256 values verified;
-- all 5 projects completed load → preparation → reconstruction → save → reopen;
-- reconstructed values and sample-count arrays were exactly unchanged after Web save/reopen (maximum delta 0);
-- 7 historical HappyMeasure `single-v2` CSV files spanning 41,623–113,266 samples parsed successfully with both `Voltage_V` and `Current_A`;
-- a Chrome `file://` large-data gate uses a 120,000-point HappyMeasure CSV (larger than the real corpus maximum), imports it, selects `Current_A`, and renders Signal Preparation; the reference CI run completed import + plot in 541 ms with 7.5 MiB JS heap used at the post-render measurement point.
-
-The user measurement corpus remains outside the public repository.
-
-Still required before desktop replacement:
-
-- final screenshot-based user review with representative measurements;
-- final user acceptance of the current browser UI and offline ZIP artifact.
-
-## Final replacement gate
-
-Do not remove desktop Map Reconstruction until all of the following are true:
-
-- Phases 1–7 pass;
-- representative historical `.hmmap` projects open correctly;
-- Web-created projects round-trip into Python;
-- representative real HappyMeasure CSV exports reproduce maps and analysis;
+- user accepts the current browser workflow on representative real measurements;
 - no unresolved scientific parity discrepancy remains;
-- offline/browser packaging is accepted.
+- offline/browser packaging is accepted;
+- public documentation accurately describes the supported-data boundary.
 
-Then create a separate HappyMeasure branch/PR to remove:
+After acceptance, create a separate HappyMeasure cleanup branch/PR to remove:
 
-- desktop Map Reconstruction Python/Qt code;
-- desktop Map Reconstruction packaging/build scripts;
-- desktop-only tests no longer relevant;
+- desktop Map Reconstruction Python/Qt UI and application code;
+- desktop Map Reconstruction packaging/build path;
+- obsolete desktop-only tests;
 - obsolete desktop documentation.
 
-Retain or migrate interoperability contracts still required by HappyMeasure and this repository, especially source CSV and `.hmmap` format documentation.
+Retain interoperability contracts still needed by the Web application, especially HappyMeasure CSV and `.hmmap` compatibility references.
 
 ## Stop conditions
 
-Stop and investigate rather than compensating in UI code if:
+Investigate instead of compensating in UI code when:
 
-- Python and Web disagree scientifically for the same input/configuration;
-- browser numeric behavior creates reproducibility concerns;
-- Python semantics are ambiguous or implicit;
-- `.hmmap` compatibility would require silently changing schema meaning;
-- large-data handling creates unnecessary full-size copies of authoritative arrays.
+- Python/Web scientific output diverges for the same covered input/configuration;
+- a new acquisition cannot be represented by the Phase Window assumptions;
+- project compatibility would require silently changing existing schema meaning;
+- browser numeric behavior creates a reproducibility concern;
+- large-data handling creates avoidable authoritative-array copies.
