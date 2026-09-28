@@ -176,6 +176,18 @@
     const selected = Array.from(current.signalColumns || []);
     if (!selected.length) throw new Error("Select at least one signal column.");
     const signalIndices = selected.map(value => resolveColumn(model, value, "Signal"));
+    for (const columnIndex of signalIndices) {
+      const column = model.columns[columnIndex];
+      if (!column || !column.numeric) {
+        throw new Error("Signal column " + JSON.stringify(model.names[columnIndex]) + " is non-numeric.");
+      }
+    }
+    if (timeMode === "column") {
+      const timeColumn = model.columns[timeIndex];
+      if (!timeColumn || !timeColumn.numeric) {
+        throw new Error("Time column " + JSON.stringify(model.names[timeIndex]) + " is non-numeric.");
+      }
+    }
     const uniqueIndices = Array.from(new Set(signalIndices));
     if (uniqueIndices.length !== signalIndices.length) throw new Error("Signal columns must be unique.");
 
