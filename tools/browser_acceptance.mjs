@@ -185,6 +185,20 @@ await waitFor(
   "application boot"
 );
 
+const pickerButtonContract = await evaluate(`(() => {
+  const input=document.getElementById("csv-file");
+  const button=document.getElementById("open-data-button");
+  let calls=0;
+  const original=input.click;
+  input.click=()=>{calls+=1;};
+  button.click();
+  input.click=original;
+  return calls;
+})()`);
+if (pickerButtonContract !== 1) {
+  throw new Error("Open data button did not trigger the file input exactly once.");
+}
+
 // Build a generic table with dense time sampling and repeatable signal content.
 const lines = ["time,current,aux"];
 for (let index = 0; index <= 2400; index += 1) {
@@ -458,6 +472,27 @@ if (Object.values(analysisHiddenContract).some(value => !value)) {
   throw new Error("Inactive Map Analysis controls must stay hidden: " + JSON.stringify(analysisHiddenContract));
 }
 await layoutContract(4);
+const analysisControlFit = await evaluate(`(() => {
+  const panel=document.querySelector("#stage-4 .control-panel");
+  panel.scrollTop=0;
+  const panelRect=panel.getBoundingClientRect();
+  const distribution=document.querySelector("#stage-4 .distribution-section").getBoundingClientRect();
+  const summary=document.getElementById("analysis-summary").getBoundingClientRect();
+  const exportSummary=document.querySelector("#stage-4 .compact-details > summary").getBoundingClientRect();
+  return {
+    panelBottom:panelRect.bottom,
+    distributionBottom:distribution.bottom,
+    summaryBottom:summary.bottom,
+    exportBottom:exportSummary.bottom,
+  };
+})()`);
+if (
+  analysisControlFit.distributionBottom > analysisControlFit.panelBottom + 1 ||
+  analysisControlFit.summaryBottom > analysisControlFit.panelBottom + 1 ||
+  analysisControlFit.exportBottom > analysisControlFit.panelBottom + 1
+) {
+  throw new Error("Stage 4 controls do not fit the initial panel viewport: " + JSON.stringify(analysisControlFit));
+}
 const analysisMapAspect = await evaluate(`(() => {
   const map=document.getElementById("processed-map-canvas").getBoundingClientRect();
   return Math.abs(map.width-map.height);
