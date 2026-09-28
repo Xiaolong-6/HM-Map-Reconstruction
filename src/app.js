@@ -155,9 +155,10 @@
     const time = state.source.timeS;
     const duration = time.length > 1 ? time[time.length - 1] - time[0] : 0;
     node.className = "summary";
+    const filename = state.originalFilename || state.source.sourceName || "";
     node.innerHTML =
       "<dl>" +
-      "<dt>File</dt><dd>" + escapeHtml(state.originalFilename || state.source.sourceName) + "</dd>" +
+      "<dt>File</dt><dd class=\"summary-file\" title=\"" + escapeHtml(filename) + "\">" + escapeHtml(filename) + "</dd>" +
       "<dt>Format</dt><dd>" + escapeHtml(state.source.metadata && state.source.metadata.import_format ? "Generic table" : state.source.schema) + "</dd>" +
       "<dt>Samples</dt><dd>" + state.source.sampleCount.toLocaleString() + "</dd>" +
       "<dt>Duration</dt><dd>" + duration.toPrecision(6) + " s</dd>" +

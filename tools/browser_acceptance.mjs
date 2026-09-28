@@ -4,7 +4,7 @@ import path from "node:path";
 const endpoint = process.env.CDP_ENDPOINT || "http://127.0.0.1:9222";
 const fileUrl = process.env.FILE_URL;
 const screenshotDir = process.env.SCREENSHOT_DIR || "dist/ui-review";
-const fixturePath = path.resolve(process.env.FIXTURE_PATH || "/tmp/hm-map-browser-acceptance.csv");
+const fixturePath = path.resolve(process.env.FIXTURE_PATH || "/tmp/HM_20260911_122734_Ge45o_3_very_long_measurement_filename_for_layout_acceptance.csv");
 const downloadDir = path.resolve(process.env.DOWNLOAD_DIR || "/tmp/hm-map-browser-downloads");
 if (!fileUrl) throw new Error("FILE_URL is required.");
 
@@ -248,6 +248,32 @@ await waitFor(
   'window.MapReconstructionWeb.appState.source?.sampleCount===2401',
   "generic source commit"
 );
+const sourceSummaryLayout = await evaluate(`(() => {
+  const summary=document.getElementById("source-summary");
+  const rect=summary.getBoundingClientRect();
+  const file=summary.querySelector(".summary-file");
+  const rows=[...summary.querySelectorAll("dd")].map(node=>({
+    text:node.textContent,
+    right:node.getBoundingClientRect().right,
+    width:node.getBoundingClientRect().width
+  }));
+  return {
+    summaryRight:rect.right,
+    scrollWidth:summary.scrollWidth,
+    clientWidth:summary.clientWidth,
+    fileText:file?.textContent||"",
+    fileTitle:file?.getAttribute("title")||"",
+    rows
+  };
+})()`);
+if (
+  sourceSummaryLayout.scrollWidth > sourceSummaryLayout.clientWidth + 1 ||
+  sourceSummaryLayout.rows.some(row => row.right > sourceSummaryLayout.summaryRight + 1) ||
+  !sourceSummaryLayout.fileText.includes("very_long_measurement_filename") ||
+  sourceSummaryLayout.fileTitle !== sourceSummaryLayout.fileText
+) {
+  throw new Error("Source summary overflow/truncation contract failed: " + JSON.stringify(sourceSummaryLayout));
+}
 await layoutContract(1);
 await screenshot("01-import-data");
 

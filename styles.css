@@ -506,3 +506,17 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
   #stage-3 .reconstruction-workspace .map-card,
   #stage-3 .reconstruction-workspace .map-card canvas { height:320px; }
 }
+
+/* Source summary: long filenames must not widen or push value rows outside the card. */
+.summary { min-width:0; overflow:hidden; }
+.summary dl { grid-template-columns:max-content minmax(0,1fr); min-width:0; }
+.summary dt { min-width:0; }
+.summary dd {
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#source-summary dd { text-align:left; }
+#source-summary .summary-file { font-variant-numeric:normal; }
