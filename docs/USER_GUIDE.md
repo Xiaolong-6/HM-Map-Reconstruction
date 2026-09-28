@@ -123,6 +123,13 @@ The Stage 3 workspace keeps these views together on a normal desktop viewport:
 
 The two maps share the same zoom/pan view.
 
+Map rendering:
+
+- **Pixel**: direct cell rendering of reconstructed values;
+- **Smooth**: display-only bilinear interpolation between finite neighboring values.
+
+Smooth rendering does not change reconstruction values, processing, exports or project data. It does not interpolate across non-finite/empty pixels. **Samples / pixel** always remains discrete.
+
 Map navigation:
 
 - wheel: zoom;
