@@ -21,6 +21,9 @@
   const byId = id => document.getElementById(id);
   let prepPlotController = null;
   let registrationPlotController = null;
+  let rawMapController = null;
+  let countMapController = null;
+  let processedMapController = null;
   let reconstructionTimer = null;
   let reconstructionQueued = false;
 
@@ -498,87 +501,40 @@
     updateStageAvailability();
   }
 
-  function mapGradient(stops) {
-    return "linear-gradient(to right," +
-      stops.map(color => "rgb(" + color.join(",") + ")").join(",") +
-      ")";
-  }
-
-  function renderMapScale(id, minimum, maximum, unit, scale, stops) {
-    const node = byId(id);
-    if (!node || !Number.isFinite(minimum) || !Number.isFinite(maximum)) {
-      if (node) node.hidden = true;
-      return;
-    }
-    const factor = Number.isFinite(scale) ? scale : 1;
-    const suffix = unit ? " " + unit : "";
-    node.hidden = false;
-    node.querySelector(".scale-min").textContent =
-      api.plotting.formatTick(minimum * factor, (maximum - minimum) * factor) + suffix;
-    node.querySelector(".scale-max").textContent =
-      api.plotting.formatTick(maximum * factor, (maximum - minimum) * factor) + suffix;
-    node.querySelector(".scale-bar").style.background = mapGradient(stops);
-  }
-
   function renderReconstruction() {
-    const mapCanvas = byId("map-canvas");
-    const countCanvas = byId("count-canvas");
-    const mapEmpty = byId("map-empty");
-    const countEmpty = byId("count-empty");
-    if (!state.reconstruction) {
+    const mapEmpty=byId("map-empty");
+    const countEmpty=byId("count-empty");
+    if(!state.reconstruction){
       mapEmpty.classList.remove("hidden");
       countEmpty.classList.remove("hidden");
-      byId("raw-map-scale").hidden = true;
-      byId("count-map-scale").hidden = true;
-      api.plotting.clearCanvas(mapCanvas);
-      api.plotting.clearCanvas(countCanvas);
+      rawMapController.clear();
+      countMapController.clear();
       return;
     }
     mapEmpty.classList.add("hidden");
     countEmpty.classList.add("hidden");
-    const display = rawDisplayUnit();
-    byId("raw-map-title").textContent = "Reconstructed values" + (display.unit ? " · " + display.unit : "");
-    api.plotting.drawHeatmap(
-      mapCanvas,
+    const display=rawDisplayUnit();
+    byId("raw-map-title").textContent="Reconstructed values"+(display.unit?" · "+display.unit:"");
+    rawMapController.setData(
       state.reconstruction.values,
       state.reconstruction.rows,
       state.reconstruction.cols,
-      { flipY: state.flipY, palette: byId("map-palette").value, inverted: byId("invert-palette").checked },
+      {
+        flipY:state.flipY,
+        palette:byId("map-palette").value,
+        inverted:byId("invert-palette").checked,
+        scale:display.scale,
+        unit:display.unit,
+        xLabel:"Column",
+        yLabel:"Row",
+      },
     );
-    api.plotting.drawHeatmap(
-      countCanvas,
+    countMapController.setData(
       state.reconstruction.sample_counts,
       state.reconstruction.rows,
       state.reconstruction.cols,
-      { counts: true, flipY: state.flipY },
+      {counts:true,flipY:state.flipY,scale:1,unit:"samples",xLabel:"Column",yLabel:"Row"},
     );
-
-    const rawLimits = api.plotting.heatmapBounds(state.reconstruction.values);
-    const paletteStops = api.plotting.paletteStops(
-      byId("map-palette").value,
-      byId("invert-palette").checked,
-    );
-    if (rawLimits) {
-      renderMapScale(
-        "raw-map-scale",
-        rawLimits.minimum,
-        rawLimits.maximum,
-        display.unit,
-        display.scale,
-        paletteStops,
-      );
-    }
-    const finiteCounts = Array.from(state.reconstruction.sample_counts).filter(Number.isFinite);
-    if (finiteCounts.length) {
-      renderMapScale(
-        "count-map-scale",
-        Math.min(...finiteCounts),
-        Math.max(...finiteCounts),
-        "",
-        1,
-        [[239,246,255],[96,165,250],[23,62,140]],
-      );
-    }
   }
 
   function syncAnalysisControls() {
@@ -690,61 +646,48 @@
   }
 
   function renderAnalysis() {
-    const mapCanvas = byId("processed-map-canvas");
-    const histogramCanvas = byId("histogram-canvas");
-    const mapEmpty = byId("processed-map-empty");
-    const histogramEmpty = byId("histogram-empty");
+    const histogramCanvas=byId("histogram-canvas");
+    const mapEmpty=byId("processed-map-empty");
+    const histogramEmpty=byId("histogram-empty");
 
-    if (!state.processed || !state.reconstruction) {
+    if(!state.processed||!state.reconstruction){
       mapEmpty.classList.remove("hidden");
       histogramEmpty.classList.remove("hidden");
-      byId("processed-map-scale").hidden = true;
-      api.plotting.clearCanvas(mapCanvas);
+      processedMapController.clear();
       api.plotting.clearCanvas(histogramCanvas);
       return;
     }
 
-    const display = currentDisplayUnit();
-    byId("processed-map-title").textContent = "Processed map" + (display.unit ? " · " + display.unit : "");
-    byId("histogram-title").textContent = "Value distribution" + (display.unit ? " · " + display.unit : "");
+    const display=currentDisplayUnit();
+    byId("processed-map-title").textContent="Processed map"+(display.unit?" · "+display.unit:"");
+    byId("histogram-title").textContent="Value distribution"+(display.unit?" · "+display.unit:"");
 
-    if (Array.from(state.processed.values).some(Number.isFinite)) {
+    if(Array.from(state.processed.values).some(Number.isFinite)){
       mapEmpty.classList.add("hidden");
-      api.plotting.drawHeatmap(
-        mapCanvas,
+      processedMapController.setData(
         state.processed.values,
         state.reconstruction.rows,
         state.reconstruction.cols,
         {
-          levels: state.colorLimits,
-          flipY: state.flipY,
-          palette: byId("map-palette").value,
-          inverted: byId("invert-palette").checked,
+          levels:state.colorLimits,
+          flipY:state.flipY,
+          palette:byId("map-palette").value,
+          inverted:byId("invert-palette").checked,
+          scale:display.scale,
+          unit:display.unit,
+          xLabel:"Column",
+          yLabel:"Row",
         },
       );
-      if (state.colorLimits) {
-        renderMapScale(
-          "processed-map-scale",
-          state.colorLimits.minimum,
-          state.colorLimits.maximum,
-          display.unit,
-          display.scale,
-          api.plotting.paletteStops(
-            byId("map-palette").value,
-            byId("invert-palette").checked,
-          ),
-        );
-      }
-    } else {
+    }else{
       mapEmpty.classList.remove("hidden");
-      byId("processed-map-scale").hidden = true;
-      api.plotting.clearCanvas(mapCanvas);
+      processedMapController.clear();
     }
 
-    if (state.histogram) {
+    if(state.histogram){
       histogramEmpty.classList.add("hidden");
-      api.plotting.drawHistogram(histogramCanvas, state.histogram, { scale: display.scale, unit: display.unit });
-    } else {
+      api.plotting.drawHistogram(histogramCanvas,state.histogram,{scale:display.scale,unit:display.unit});
+    }else{
       histogramEmpty.classList.remove("hidden");
       api.plotting.clearCanvas(histogramCanvas);
     }
@@ -1280,6 +1223,14 @@
       onViewChange(view) { syncAxisFields("registration", view); },
     });
 
+    rawMapController = new api.interactivePlot.HeatmapController(byId("map-canvas"), {
+      onViewChange(view) { if (countMapController) countMapController.setView(view, false); },
+    });
+    countMapController = new api.interactivePlot.HeatmapController(byId("count-canvas"), {
+      onViewChange(view) { if (rawMapController) rawMapController.setView(view, false); },
+    });
+    processedMapController = new api.interactivePlot.HeatmapController(byId("processed-map-canvas"));
+
     document.querySelectorAll('input[type="number"]').forEach(input => {
       input.addEventListener("wheel", event => {
         event.preventDefault();
@@ -1330,6 +1281,11 @@
     byId("registration-autoscale").addEventListener("click", () => registrationPlotController.autoscale());
     byId("registration-reset-x").addEventListener("click", () => registrationPlotController.fullX());
     byId("registration-apply-axes").addEventListener("click", () => applyAxisFields("registration", registrationPlotController));
+    byId("reset-reconstruction-maps").addEventListener("click", () => {
+      rawMapController.reset();
+      countMapController.setView(rawMapController.resolvedView(), false);
+    });
+    byId("reset-analysis-map").addEventListener("click", () => processedMapController.reset());
     byId("add-dark-region").addEventListener("click", () => {
       setControl("dark-mode", "manual_regions");
       syncPreparationControls();

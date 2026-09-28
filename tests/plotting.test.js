@@ -75,3 +75,25 @@ test("trace envelope retains a non-finite gap marker",()=>{
   const indices=p.traceEnvelopeIndices(time,values,viewport,5);
   assert.ok(indices.includes(50));
 });
+
+
+test("heatmap viewport preserves cell aspect ratio and explicit zoom",()=>{
+  const viewport=p.heatmapViewport(600,600,50,50,{xMin:10,xMax:30,yMin:5,yMax:25});
+  assert.equal(viewport.xMin,10);
+  assert.equal(viewport.xMax,30);
+  assert.equal(viewport.yMin,5);
+  assert.equal(viewport.yMax,25);
+  assert.ok(Math.abs(viewport.plotWidth-viewport.plotHeight)<1e-9);
+  const center=p.mapPixelToData(
+    viewport.left+viewport.plotWidth/2,
+    viewport.top+viewport.plotHeight/2,
+    viewport,
+  );
+  assert.ok(Math.abs(center.x-20)<1e-12);
+  assert.ok(Math.abs(center.y-15)<1e-12);
+});
+
+test("heatmap viewport fits rectangular geometry without stretching cells",()=>{
+  const viewport=p.heatmapViewport(800,500,20,40,null);
+  assert.ok(Math.abs(viewport.plotWidth/viewport.plotHeight-2)<1e-9);
+});

@@ -264,5 +264,146 @@
     }
   }
 
-  api.interactivePlot = Object.freeze({ TracePlotController });
+  class HeatmapController {
+    constructor(canvas,options){
+      this.canvas=canvas;
+      this.options=options||{};
+      this.values=null;this.rows=0;this.cols=0;this.config={};this.view=null;this.drag=null;
+      this._bind();
+    }
+
+    _bind(){
+      this.canvas.addEventListener("wheel",event=>this._wheel(event),{passive:false});
+      this.canvas.addEventListener("pointerdown",event=>this._pointerDown(event));
+      this.canvas.addEventListener("pointermove",event=>this._pointerMove(event));
+      this.canvas.addEventListener("pointerup",event=>this._pointerUp(event));
+      this.canvas.addEventListener("pointercancel",event=>this._pointerUp(event));
+      this.canvas.addEventListener("dblclick",event=>{event.preventDefault();this.reset();});
+    }
+
+    setData(values,rows,cols,config){
+      const dimensionsChanged=rows!==this.rows||cols!==this.cols;
+      this.values=values||null;this.rows=rows||0;this.cols=cols||0;this.config=config||{};
+      if(dimensionsChanged)this.view=null;
+      this.draw();
+    }
+
+    clear(){
+      this.values=null;this.rows=0;this.cols=0;this.view=null;this.drag=null;
+      api.plotting.clearCanvas(this.canvas);
+    }
+
+    reset(notify=true){
+      this.view=null;this.draw();
+      if(notify)this._notify();
+    }
+
+    setView(view,notify=true){
+      this.view=view?this._clampView(view):null;
+      this.draw();
+      if(notify)this._notify();
+    }
+
+    resolvedView(){
+      const viewport=this._viewport();
+      return viewport?Object.freeze({xMin:viewport.xMin,xMax:viewport.xMax,yMin:viewport.yMin,yMax:viewport.yMax}):null;
+    }
+
+    draw(){
+      if(!this.values||!this.rows||!this.cols){api.plotting.clearCanvas(this.canvas);return null;}
+      return api.plotting.drawHeatmap(
+        this.canvas,this.values,this.rows,this.cols,
+        Object.assign({},this.config,{view:this.view}),
+      );
+    }
+
+    _viewport(){
+      if(!this.rows||!this.cols)return null;
+      return api.plotting.heatmapViewport(
+        this.canvas.clientWidth,this.canvas.clientHeight,this.rows,this.cols,this.view,
+      );
+    }
+
+    _position(event){
+      const rect=this.canvas.getBoundingClientRect();
+      return {x:event.clientX-rect.left,y:event.clientY-rect.top};
+    }
+
+    _inside(position,viewport){
+      return position.x>=viewport.left&&position.x<=viewport.right&&position.y>=viewport.top&&position.y<=viewport.bottom;
+    }
+
+    _clampAxis(min,max,fullMax){
+      let span=Math.max(1,Math.min(fullMax,max-min));
+      let low=min,high=low+span;
+      if(low<0){high-=low;low=0;}
+      if(high>fullMax){low-=high-fullMax;high=fullMax;}
+      if(low<0)low=0;
+      return [low,high];
+    }
+
+    _clampView(view){
+      const x=this._clampAxis(Number(view.xMin),Number(view.xMax),this.cols);
+      const y=this._clampAxis(Number(view.yMin),Number(view.yMax),this.rows);
+      return Object.freeze({xMin:x[0],xMax:x[1],yMin:y[0],yMax:y[1]});
+    }
+
+    _wheel(event){
+      const viewport=this._viewport();
+      if(!viewport)return;
+      const position=this._position(event);
+      if(!this._inside(position,viewport))return;
+      event.preventDefault();
+      const current=this.resolvedView();
+      const anchor=api.plotting.mapPixelToData(position.x,position.y,viewport);
+      const factor=Math.exp(Math.max(-1.2,Math.min(1.2,event.deltaY*0.0014)));
+      this.view=this._clampView({
+        xMin:anchor.x+(current.xMin-anchor.x)*factor,
+        xMax:anchor.x+(current.xMax-anchor.x)*factor,
+        yMin:anchor.y+(current.yMin-anchor.y)*factor,
+        yMax:anchor.y+(current.yMax-anchor.y)*factor,
+      });
+      this.draw();this._notify();
+    }
+
+    _pointerDown(event){
+      const viewport=this._viewport();
+      if(!viewport)return;
+      const position=this._position(event);
+      if(!this._inside(position,viewport))return;
+      this.drag={position,startView:this.resolvedView()};
+      this.canvas.setPointerCapture(event.pointerId);
+      this.canvas.style.cursor="grabbing";
+      event.preventDefault();
+    }
+
+    _pointerMove(event){
+      if(!this.drag){this.canvas.style.cursor="grab";return;}
+      const viewport=this._viewport();
+      if(!viewport)return;
+      const position=this._position(event);
+      const start=this.drag.startView;
+      const dx=position.x-this.drag.position.x,dy=position.y-this.drag.position.y;
+      const xShift=-dx/viewport.plotWidth*(start.xMax-start.xMin);
+      const yShift=-dy/viewport.plotHeight*(start.yMax-start.yMin);
+      this.view=this._clampView({
+        xMin:start.xMin+xShift,xMax:start.xMax+xShift,
+        yMin:start.yMin+yShift,yMax:start.yMax+yShift,
+      });
+      this.draw();this._notify();
+    }
+
+    _pointerUp(event){
+      if(!this.drag)return;
+      this.drag=null;
+      try{this.canvas.releasePointerCapture(event.pointerId);}catch(_){}
+      this.canvas.style.cursor="grab";
+    }
+
+    _notify(){
+      if(typeof this.options.onViewChange==="function")this.options.onViewChange(this.resolvedView());
+    }
+  }
+
+  api.interactivePlot = Object.freeze({ TracePlotController, HeatmapController });
 })(typeof window !== "undefined" ? window : globalThis);

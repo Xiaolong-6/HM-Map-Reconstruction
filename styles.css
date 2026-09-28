@@ -393,3 +393,24 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
   letter-spacing:.035em;
   text-transform:uppercase;
 }
+
+.map-card canvas { touch-action:none; cursor:grab; }
+.map-card canvas:active { cursor:grabbing; }
+.map-view-toolbar {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:10px 0 0;
+  color:var(--muted);
+  font-size:11px;
+}
+.map-view-toolbar button {
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:#fff;
+  color:#44506a;
+  min-height:28px;
+  padding:0 9px;
+  font:600 11px/1 system-ui,sans-serif;
+  cursor:pointer;
+}

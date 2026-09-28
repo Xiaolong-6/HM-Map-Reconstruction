@@ -272,38 +272,148 @@
     return displayRow * cols + col;
   }
 
-  function drawHeatmap(canvas, values, rows, cols, options) {
-    const context = clearCanvas(canvas);
-    if (!rows || !cols || !values || values.length !== rows * cols) return;
-    const limits = heatmapBounds(values, options);
-    if (!limits) return;
-    const minimum = limits.minimum, maximum = limits.maximum;
+  function heatmapViewport(width,height,rows,cols,view) {
+    if(!(rows>0)||!(cols>0))return null;
+    const requested=view||{};
+    let xMin=Number.isFinite(requested.xMin)?requested.xMin:0;
+    let xMax=Number.isFinite(requested.xMax)?requested.xMax:cols;
+    let yMin=Number.isFinite(requested.yMin)?requested.yMin:0;
+    let yMax=Number.isFinite(requested.yMax)?requested.yMax:rows;
+    if(!(xMin<xMax)||!(yMin<yMax))return null;
+    xMin=Math.max(0,Math.min(cols,xMin));xMax=Math.max(0,Math.min(cols,xMax));
+    yMin=Math.max(0,Math.min(rows,yMin));yMax=Math.max(0,Math.min(rows,yMax));
+    if(!(xMin<xMax)||!(yMin<yMax))return null;
+    const margin={left:48,right:82,top:30,bottom:44};
+    const availableWidth=Math.max(1,width-margin.left-margin.right);
+    const availableHeight=Math.max(1,height-margin.top-margin.bottom);
+    const aspect=(xMax-xMin)/(yMax-yMin);
+    let plotWidth=availableWidth,plotHeight=plotWidth/aspect;
+    if(plotHeight>availableHeight){
+      plotHeight=availableHeight;
+      plotWidth=plotHeight*aspect;
+    }
+    const left=margin.left+(availableWidth-plotWidth)/2;
+    const top=margin.top+(availableHeight-plotHeight)/2;
+    return Object.freeze({
+      xMin,xMax,yMin,yMax,
+      fullXMin:0,fullXMax:cols,fullYMin:0,fullYMax:rows,
+      left,right:left+plotWidth,top,bottom:top+plotHeight,
+      plotWidth,plotHeight,width,height,rows,cols,
+    });
+  }
 
-    const source = document.createElement("canvas");
-    source.width = cols; source.height = rows;
-    const sourceContext = source.getContext("2d");
-    const image = sourceContext.createImageData(cols, rows);
-    const stops = (options && options.counts)
+  function mapPixelToData(x,y,viewport) {
+    return Object.freeze({
+      x:viewport.xMin+(x-viewport.left)/viewport.plotWidth*(viewport.xMax-viewport.xMin),
+      y:viewport.yMin+(y-viewport.top)/viewport.plotHeight*(viewport.yMax-viewport.yMin),
+    });
+  }
+
+  function drawHeatmap(canvas, values, rows, cols, options) {
+    const context=clearCanvas(canvas);
+    if(!rows||!cols||!values||values.length!==rows*cols)return null;
+    const limits=heatmapBounds(values,options);
+    if(!limits)return null;
+    const viewport=heatmapViewport(canvas.clientWidth,canvas.clientHeight,rows,cols,options&&options.view);
+    if(!viewport)return null;
+    const minimum=limits.minimum,maximum=limits.maximum;
+    const source=document.createElement("canvas");
+    source.width=cols;source.height=rows;
+    const sourceContext=source.getContext("2d");
+    const image=sourceContext.createImageData(cols,rows);
+    const stops=(options&&options.counts)
       ? [[239,246,255],[96,165,250],[23,62,140]]
       : paletteStops(
-          options && options.palette ? options.palette : "Viridis",
-          Boolean(options && options.inverted),
+          options&&options.palette?options.palette:"Viridis",
+          Boolean(options&&options.inverted),
         );
-    function colorAt(fraction) {
-      const t = Math.max(0, Math.min(1, fraction)) * (stops.length - 1);
-      const left = Math.floor(t), right = Math.min(stops.length - 1, left + 1), f = t - left;
-      return [0,1,2].map(channel => Math.round(stops[left][channel] * (1 - f) + stops[right][channel] * f));
+    function colorAt(fraction){
+      const t=Math.max(0,Math.min(1,fraction))*(stops.length-1);
+      const left=Math.floor(t),right=Math.min(stops.length-1,left+1),f=t-left;
+      return [0,1,2].map(channel=>Math.round(stops[left][channel]*(1-f)+stops[right][channel]*f));
     }
-    const flipY = Boolean(options && options.flipY);
-    for (let index = 0; index < values.length; index += 1) {
-      const target = heatmapDisplayIndex(index, rows, cols, flipY) * 4, value = values[index];
-      if (!Number.isFinite(value)) { image.data[target + 3] = 0; continue; }
-      const color = colorAt((value - minimum) / (maximum - minimum));
-      image.data[target] = color[0]; image.data[target + 1] = color[1]; image.data[target + 2] = color[2]; image.data[target + 3] = 255;
+    const flipY=Boolean(options&&options.flipY);
+    for(let index=0;index<values.length;index+=1){
+      const target=heatmapDisplayIndex(index,rows,cols,flipY)*4,value=values[index];
+      if(!Number.isFinite(value)){image.data[target+3]=0;continue;}
+      const color=colorAt((value-minimum)/(maximum-minimum));
+      image.data[target]=color[0];image.data[target+1]=color[1];image.data[target+2]=color[2];image.data[target+3]=255;
     }
-    sourceContext.putImageData(image, 0, 0);
-    context.imageSmoothingEnabled = false;
-    context.drawImage(source, 0, 0, canvas.clientWidth, canvas.clientHeight);
+    sourceContext.putImageData(image,0,0);
+    context.imageSmoothingEnabled=false;
+    context.drawImage(
+      source,
+      viewport.xMin,viewport.yMin,viewport.xMax-viewport.xMin,viewport.yMax-viewport.yMin,
+      viewport.left,viewport.top,viewport.plotWidth,viewport.plotHeight,
+    );
+
+    context.save();
+    context.strokeStyle="#94a3b8";
+    context.lineWidth=1;
+    context.strokeRect(viewport.left+.5,viewport.top+.5,viewport.plotWidth-1,viewport.plotHeight-1);
+    context.fillStyle="#68738a";
+    context.font="11px ui-sans-serif, system-ui, sans-serif";
+    context.textBaseline="top";
+    context.textAlign="center";
+    for(let tick=0;tick<=4;tick+=1){
+      const fraction=tick/4;
+      const x=viewport.left+fraction*viewport.plotWidth;
+      const dataX=viewport.xMin+fraction*(viewport.xMax-viewport.xMin);
+      context.beginPath();context.moveTo(x,viewport.bottom);context.lineTo(x,viewport.bottom+4);context.stroke();
+      context.fillText(formatTick(dataX,viewport.xMax-viewport.xMin),x,viewport.bottom+7);
+    }
+    context.textBaseline="middle";
+    context.textAlign="right";
+    for(let tick=0;tick<=4;tick+=1){
+      const fraction=tick/4;
+      const y=viewport.top+fraction*viewport.plotHeight;
+      const displayY=viewport.yMin+fraction*(viewport.yMax-viewport.yMin);
+      const rowCoordinate=flipY?rows-displayY:displayY;
+      context.beginPath();context.moveTo(viewport.left-4,y);context.lineTo(viewport.left,y);context.stroke();
+      context.fillText(formatTick(rowCoordinate,viewport.yMax-viewport.yMin),viewport.left-7,y);
+    }
+    context.fillStyle="#344054";
+    context.textAlign="center";
+    context.textBaseline="bottom";
+    context.fillText((options&&options.xLabel)||"Column",viewport.left+viewport.plotWidth/2,canvas.clientHeight-4);
+    context.save();
+    context.translate(12,viewport.top+viewport.plotHeight/2);
+    context.rotate(-Math.PI/2);
+    context.fillText((options&&options.yLabel)||"Row",0,0);
+    context.restore();
+
+    if(!options||options.colorbar!==false){
+      const scale=options&&Number.isFinite(options.scale)?options.scale:1;
+      const unit=options&&options.unit?String(options.unit):"";
+      const barX=viewport.right+18,barY=viewport.top,barW=11,barH=viewport.plotHeight;
+      const gradient=context.createLinearGradient(0,barY,0,barY+barH);
+      stops.forEach((rgb,index)=>{
+        const fraction=stops.length===1?0:index/(stops.length-1);
+        const reversed=stops[stops.length-1-index];
+        gradient.addColorStop(fraction,"rgb("+reversed.join(",")+")");
+      });
+      context.fillStyle=gradient;
+      context.fillRect(barX,barY,barW,barH);
+      context.strokeStyle="#94a3b8";
+      context.strokeRect(barX+.5,barY+.5,barW-1,barH-1);
+      context.fillStyle="#4b5870";
+      context.font="10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+      context.textAlign="left";
+      context.textBaseline="top";
+      context.fillText(formatTick(maximum*scale,(maximum-minimum)*scale),barX+16,barY);
+      context.textBaseline="bottom";
+      context.fillText(formatTick(minimum*scale,(maximum-minimum)*scale),barX+16,barY+barH);
+      if(unit){
+        context.save();
+        context.translate(barX+34,barY+barH/2);
+        context.rotate(-Math.PI/2);
+        context.textAlign="center";context.textBaseline="bottom";
+        context.fillText(unit,0,0);
+        context.restore();
+      }
+    }
+    context.restore();
+    return viewport;
   }
 
   function drawHistogram(canvas, histogram, options) {
@@ -339,6 +449,6 @@
   api.plotting = Object.freeze({
     clearCanvas, drawTrace, drawTraces,
     traceDataBounds, traceViewport, traceEnvelopeIndices, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
-    paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram
+    paletteStops, heatmapBounds, heatmapDisplayIndex, heatmapViewport, mapPixelToData, drawHeatmap, drawHistogram
   });
 })(typeof window !== "undefined" ? window : globalThis);
