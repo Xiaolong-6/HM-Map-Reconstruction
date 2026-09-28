@@ -43,7 +43,7 @@
         <label class="check-field"><input id="invert-signal" type="checkbox"><span>Invert prepared signal</span></label>
         <label class="check-field"><input id="gate-enabled" type="checkbox"><span>Limit baseline candidates by raw value</span></label>
         <div id="gate-fields" class="two-column" hidden><label class="field"><span id="gate-min-label">Gate min</span><input id="gate-min" type="number" value="0" step="any"></label><label class="field"><span id="gate-max-label">Gate max</span><input id="gate-max" type="number" value="1" step="any"></label></div>
-        <div id="prepared-summary" class="summary empty">Preparation preview unavailable.</div>
+        <div id="prepared-summary" class="summary empty">Preparation preview unavailable.</div>\n        <button id="export-prepared-button" class="secondary-button" disabled>Export prepared CSV</button>
         <details><summary>Source metadata</summary><pre id="metadata-view">{}</pre></details>
       </aside>
       <section class="workspace">
@@ -80,7 +80,7 @@
         </div>
 
         <button id="reconstruct-button" class="primary-button">Reconstruct prepared signal</button>
-        <button id="save-project-button" class="secondary-button" disabled>Save .hmmap</button>
+        <button id="save-project-button" class="secondary-button" disabled>Save .hmmap</button>\n        <button id="export-raw-button" class="secondary-button" disabled>Export raw map CSV</button>
         <div id="reconstruction-summary" class="summary empty">No reconstruction yet.</div>
       </aside>
       <section class="workspace">
@@ -119,7 +119,7 @@
         <label class="field"><span>Bins</span><select id="hist-bin-mode"><option value="auto">Auto</option><option value="count">Count</option><option value="width">Width</option></select></label>
         <label class="field" id="hist-count-field" hidden><span>Bin count</span><input id="hist-count" type="number" value="50" min="1" step="1"></label>
         <label class="field" id="hist-width-field" hidden><span id="hist-width-label">Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
-        <div id="analysis-summary" class="summary empty">No processed map.</div>
+        <div id="analysis-summary" class="summary empty">No processed map.</div>\n        <div class="section-rule"></div>\n        <h2>Export</h2>\n        <button id="export-processed-button" class="secondary-button" disabled>Export processed map + JSON</button>
       </aside>
       <section class="workspace">
         <div class="workspace-heading"><div><p class="eyebrow">Processed scientific values</p><h2>Map Analysis</h2></div><div id="analysis-status" class="status">Processing follows the raw reconstruction.</div></div>
@@ -133,6 +133,6 @@
 
 
   <script src="src/shared.js"></script><script src="src/display_units.js"></script><script src="src/csv.js"></script><script src="src/preparation.js"></script>
-  <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/app.js"></script>
+  <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/exporting.js"></script><script src="src/app.js"></script>
 </body>
 </html>

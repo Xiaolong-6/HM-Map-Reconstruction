@@ -117,6 +117,10 @@
     const stage3 = document.querySelector('.stage-button[data-stage="3"]');
     stage2.disabled = !state.prepared;
     stage3.disabled = !state.reconstruction;
+    byId("export-prepared-button").disabled = !state.prepared;
+    byId("export-raw-button").disabled = !state.reconstruction;
+    byId("export-processed-button").disabled =
+      !state.processed || !Array.from(state.processed.values).some(Number.isFinite);
     if (!state.prepared && state.activeStage > 1) activateStage(1);
     else if (!state.reconstruction && state.activeStage > 2) activateStage(2);
   }
@@ -715,6 +719,88 @@
     }
   }
 
+  function sourceStem() {
+    return String(state.originalFilename || "map").replace(/\.[^.]+$/, "");
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function downloadText(text, filename, type) {
+    downloadBlob(new Blob([text], { type: type || "text/plain;charset=utf-8" }), filename);
+  }
+
+  function exportPrepared() {
+    if (!state.prepared || !state.source || !state.signal) return;
+    try {
+      const text = api.exporting.preparedCsv(
+        state.prepared,
+        state.source.signals[state.signal],
+      );
+      downloadText(text, sourceStem() + "_prepared.csv", "text/csv;charset=utf-8");
+      setStatus("status", "Prepared trace exported.", "ok");
+    } catch (error) {
+      setStatus("status", error.message || String(error), "error");
+    }
+  }
+
+  function exportRawMap() {
+    if (!state.reconstruction) return;
+    try {
+      const text = api.exporting.matrixCsv(
+        state.reconstruction.values,
+        state.reconstruction.rows,
+        state.reconstruction.cols,
+      );
+      downloadText(text, sourceStem() + "_map_raw.csv", "text/csv;charset=utf-8");
+      setStatus("reconstruction-status", "Raw reconstructed map exported.", "ok");
+    } catch (error) {
+      setStatus("reconstruction-status", error.message || String(error), "error");
+    }
+  }
+
+  function exportProcessedMap() {
+    if (!state.processed || !state.reconstruction || !state.prepared) return;
+    try {
+      const csv = api.exporting.matrixCsv(
+        state.processed.values,
+        state.reconstruction.rows,
+        state.reconstruction.cols,
+      );
+      const display = currentDisplayUnit();
+      const metadata = api.exporting.processedMetadata({
+        signal: state.signal,
+        scientificUnit: api.displayUnits.scientificUnitForSignal(state.signal),
+        rawDisplayUnit: rawDisplayUnit(),
+        preparation: state.prepared.config,
+        preparedMetadata: state.prepared.metadata,
+        processed: state.processed,
+        processing: analysisConfig(),
+        displayColorLimits: state.colorLimits
+          ? [state.colorLimits.minimum * display.scale, state.colorLimits.maximum * display.scale]
+          : null,
+      });
+      const stem = sourceStem() + "_map_processed";
+      downloadText(csv, stem + ".csv", "text/csv;charset=utf-8");
+      downloadText(
+        JSON.stringify(metadata, null, 2) + "\n",
+        stem + ".json",
+        "application/json;charset=utf-8",
+      );
+      setStatus("analysis-status", "Processed map and metadata exported.", "ok");
+    } catch (error) {
+      setStatus("analysis-status", error.message || String(error), "error");
+    }
+  }
+
   async function saveProject() {
     if (
       !state.rawBytes ||
@@ -737,13 +823,10 @@
         flipY: state.flipY,
         applicationVersion: "web-prototype",
       });
-      const blob = new Blob([result.bytes], { type: "application/zip" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = state.originalFilename.replace(/\.csv$/i, "") + ".hmmap";
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(
+        new Blob([result.bytes], { type: "application/zip" }),
+        sourceStem() + ".hmmap",
+      );
       setStatus("reconstruction-status", "Saved " + result.metadata.schema + ".", "ok");
     } catch (error) {
       setStatus("reconstruction-status", error.message || String(error), "error");
@@ -847,6 +930,9 @@
 
     byId("reconstruct-button").addEventListener("click", reconstruct);
     byId("save-project-button").addEventListener("click", saveProject);
+    byId("export-prepared-button").addEventListener("click", exportPrepared);
+    byId("export-raw-button").addEventListener("click", exportRawMap);
+    byId("export-processed-button").addEventListener("click", exportProcessedMap);
 
     root.addEventListener("resize", () => {
       if (state.activeStage === 1) renderTrace();
