@@ -344,3 +344,21 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
 @media (max-width: 1050px) {
   .map-card.square-map, .map-card.square-map canvas { min-height:0; height:auto; aspect-ratio:1 / 1; }
 }
+
+.legend .legend-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:24px;
+  margin:0;
+  padding:2px 5px;
+  border:0;
+  border-radius:5px;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  cursor:pointer;
+}
+.legend .legend-toggle:hover { background:#f1f5fb; }
+.legend .legend-toggle.off { opacity:.38; text-decoration:line-through; }
+.legend .legend-toggle i { flex:none; }

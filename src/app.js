@@ -249,6 +249,19 @@
       "</dl>";
   }
 
+  function legendEnabled(id) {
+    const node = byId(id);
+    return !node || node.getAttribute("aria-pressed") !== "false";
+  }
+
+  function toggleLegend(id, render) {
+    const node = byId(id);
+    const next = node.getAttribute("aria-pressed") === "false";
+    node.setAttribute("aria-pressed", next ? "true" : "false");
+    node.classList.toggle("off", !next);
+    render();
+  }
+
   function preparationRegions() {
     try {
       return parseManualRegions().map(region => ({
@@ -279,13 +292,16 @@
     }
     empty.classList.add("hidden");
     const display = rawDisplayUnit();
-    const series = [
-      { label: "Raw", values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale },
-    ];
-    if (state.prepared && state.prepared.baseline) {
+    const series = [];
+    if (legendEnabled("legend-raw")) {
+      series.push({ label: "Raw", values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale });
+    }
+    const baselineAvailable = Boolean(state.prepared && state.prepared.baseline);
+    byId("legend-baseline").hidden = !baselineAvailable;
+    if (baselineAvailable && legendEnabled("legend-baseline")) {
       series.push({ label: "Baseline B(t)", values: state.prepared.baseline, color: "#d97706", dash: [6, 4], scale: display.scale });
     }
-    if (state.prepared) {
+    if (state.prepared && legendEnabled("legend-prepared")) {
       series.push({ label: "Prepared", values: state.prepared.values, color: "#168a62", scale: display.scale });
     }
     if (prepPlotController) {
@@ -301,11 +317,11 @@
 
   function registrationMarkers() {
     return [
-      { id: "row-a", label: "YA", value: Number(byId("row-a").value), color: "#2563eb" },
-      { id: "row-b", label: "YB", value: Number(byId("row-b").value), color: "#7c3aed" },
-      { id: "point-a", label: "XA", value: Number(byId("point-a").value), color: "#059669" },
-      { id: "point-b", label: "XB", value: Number(byId("point-b").value), color: "#dc2626" },
-    ];
+      { id: "row-a", legend: "legend-row-a", label: "YA", value: Number(byId("row-a").value), color: "#2563eb" },
+      { id: "row-b", legend: "legend-row-b", label: "YB", value: Number(byId("row-b").value), color: "#7c3aed" },
+      { id: "point-a", legend: "legend-point-a", label: "XA", value: Number(byId("point-a").value), color: "#059669" },
+      { id: "point-b", legend: "legend-point-b", label: "XB", value: Number(byId("point-b").value), color: "#dc2626" },
+    ].filter(marker => legendEnabled(marker.legend));
   }
 
   function renderRegistrationTrace() {
@@ -1222,6 +1238,18 @@
         const file = byId("csv-file").files && byId("csv-file").files[0];
         if (file) loadFile(file);
       }
+    });
+
+    [
+      ["legend-raw", renderTrace],
+      ["legend-baseline", renderTrace],
+      ["legend-prepared", renderTrace],
+      ["legend-row-a", renderRegistrationTrace],
+      ["legend-row-b", renderRegistrationTrace],
+      ["legend-point-a", renderRegistrationTrace],
+      ["legend-point-b", renderRegistrationTrace],
+    ].forEach(([id, render]) => {
+      byId(id).addEventListener("click", () => toggleLegend(id, render));
     });
 
     byId("prep-autoscale").addEventListener("click", () => prepPlotController.autoscale());

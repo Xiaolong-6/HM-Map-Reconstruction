@@ -89,7 +89,7 @@
           </div></details>
           <span class="toolbar-hint">Wheel X · Shift+wheel Y · drag pan · double-click auto</span>
         </div>
-        <div class="legend" id="prep-legend"><span><i style="--legend:#275fe6"></i>Raw</span><span><i style="--legend:#d97706"></i>Baseline B(t)</span><span><i style="--legend:#168a62"></i>Prepared</span></div>
+        <div class="legend" id="prep-legend"><button id="legend-raw" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#275fe6"></i>Raw</button><button id="legend-baseline" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#d97706"></i>Baseline B(t)</button><button id="legend-prepared" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#168a62"></i>Prepared</button></div>
         <div class="plot-card trace-card"><canvas id="trace-canvas" aria-label="Signal preparation trace"></canvas><div id="trace-empty" class="empty-overlay">Import data to preview the signal.</div></div>
       </section>
     </section>
@@ -130,7 +130,7 @@
           </div></details>
           <span class="toolbar-hint">Drag YA/YB/XA/XB · wheel zoom · drag empty area pan</span>
         </div>
-        <div class="legend marker-legend"><span><i style="--legend:#2563eb"></i>YA</span><span><i style="--legend:#7c3aed"></i>YB</span><span><i style="--legend:#059669"></i>XA</span><span><i style="--legend:#dc2626"></i>XB</span></div>
+        <div class="legend marker-legend"><button id="legend-row-a" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#2563eb"></i>YA</button><button id="legend-row-b" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#7c3aed"></i>YB</button><button id="legend-point-a" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#059669"></i>XA</button><button id="legend-point-b" class="legend-toggle" type="button" aria-pressed="true"><i style="--legend:#dc2626"></i>XB</button></div>
         <div class="plot-card registration-trace-card"><canvas id="registration-trace-canvas" aria-label="Registration trace"></canvas><div id="registration-trace-empty" class="empty-overlay">Prepare a signal first.</div></div>
         <div class="map-grid">
           <div class="map-card square-map"><h3 id="raw-map-title">Reconstructed values</h3><canvas id="map-canvas"></canvas><div id="map-empty" class="empty-overlay">No map yet.</div></div>
