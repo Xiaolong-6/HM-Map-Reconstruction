@@ -19,6 +19,8 @@
   };
 
   const byId = id => document.getElementById(id);
+  let prepPlotController = null;
+  let registrationPlotController = null;
 
   function setStatus(id, message, kind) {
     const node = byId(id);
@@ -242,6 +244,26 @@
       "</dl>";
   }
 
+  function preparationRegions() {
+    try {
+      return parseManualRegions().map(region => ({
+        start_s: region.start_s,
+        end_s: region.end_s,
+        color: "rgba(245,158,11,.16)",
+      }));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function syncAxisFields(prefix, view) {
+    if (!view) return;
+    for (const [suffix, key] of [["x-min","xMin"],["x-max","xMax"],["y-min","yMin"],["y-max","yMax"]]) {
+      const node = byId(prefix + "-" + suffix);
+      if (node && document.activeElement !== node) node.value = Number(view[key]).toPrecision(8);
+    }
+  }
+
   function renderTrace() {
     const canvas = byId("trace-canvas");
     const empty = byId("trace-empty");
@@ -252,14 +274,33 @@
     }
     empty.classList.add("hidden");
     const display = rawDisplayUnit();
-    const series = [{ values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale }];
+    const series = [
+      { label: "Raw", values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale },
+    ];
     if (state.prepared && state.prepared.baseline) {
-      series.push({ values: state.prepared.baseline, color: "#d97706", dash: [6, 4], scale: display.scale });
+      series.push({ label: "Baseline B(t)", values: state.prepared.baseline, color: "#d97706", dash: [6, 4], scale: display.scale });
     }
     if (state.prepared) {
-      series.push({ values: state.prepared.values, color: "#168a62", scale: display.scale });
+      series.push({ label: "Prepared", values: state.prepared.values, color: "#168a62", scale: display.scale });
     }
-    api.plotting.drawTraces(canvas, state.source.timeS, series, { yLabel: display.axisLabel });
+    if (prepPlotController) {
+      prepPlotController.setData(state.source.timeS, series, {
+        yLabel: display.axisLabel,
+        regions: byId("dark-mode").value === "manual_regions" ? preparationRegions() : [],
+      });
+      syncAxisFields("prep", prepPlotController.resolvedView());
+    } else {
+      api.plotting.drawTraces(canvas, state.source.timeS, series, { yLabel: display.axisLabel });
+    }
+  }
+
+  function registrationMarkers() {
+    return [
+      { id: "row-a", label: "YA", value: Number(byId("row-a").value), color: "#2563eb" },
+      { id: "row-b", label: "YB", value: Number(byId("row-b").value), color: "#7c3aed" },
+      { id: "point-a", label: "XA", value: Number(byId("point-a").value), color: "#059669" },
+      { id: "point-b", label: "XB", value: Number(byId("point-b").value), color: "#dc2626" },
+    ];
   }
 
   function renderRegistrationTrace() {
@@ -273,12 +314,34 @@
     }
     empty.classList.add("hidden");
     const display = rawDisplayUnit();
-    api.plotting.drawTraces(
-      canvas,
-      state.prepared.time_s,
-      [{ values: state.prepared.values, color: "#168a62", scale: display.scale }],
-      { yLabel: display.axisLabel },
-    );
+    const series = [{ label: "Prepared", values: state.prepared.values, color: "#168a62", scale: display.scale }];
+    if (registrationPlotController) {
+      registrationPlotController.setData(state.prepared.time_s, series, {
+        yLabel: display.axisLabel,
+        markers: registrationMarkers(),
+      });
+      syncAxisFields("registration", registrationPlotController.resolvedView());
+    } else {
+      api.plotting.drawTraces(canvas, state.prepared.time_s, series, {
+        yLabel: display.axisLabel,
+        markers: registrationMarkers(),
+      });
+    }
+  }
+
+  function applyAxisFields(prefix, controller) {
+    if (!controller) return;
+    try {
+      controller.setView({
+        xMin: Number(byId(prefix + "-x-min").value),
+        xMax: Number(byId(prefix + "-x-max").value),
+        yMin: Number(byId(prefix + "-y-min").value),
+        yMax: Number(byId(prefix + "-y-max").value),
+      });
+    } catch (error) {
+      const statusId = prefix === "prep" ? "status" : "reconstruction-status";
+      setStatus(statusId, error.message || String(error), "error");
+    }
   }
 
   function invalidateReconstruction() {
@@ -989,6 +1052,30 @@
   }
 
   function init() {
+    prepPlotController = new api.interactivePlot.TracePlotController(byId("trace-canvas"), {
+      onRegionCreate(start, end) {
+        const textarea = byId("manual-regions");
+        const line = start.toPrecision(8) + "," + end.toPrecision(8);
+        textarea.value = textarea.value.trim() ? textarea.value.trim() + "\n" + line : line;
+        setControl("dark-mode", "manual_regions");
+        syncPreparationControls();
+        recomputePreparation();
+        setStatus("status", "Dark region added from plot.", "ok");
+      },
+      onViewChange(view) { syncAxisFields("prep", view); },
+    });
+    registrationPlotController = new api.interactivePlot.TracePlotController(byId("registration-trace-canvas"), {
+      onMarkerMove(id, value, finished) {
+        setControl(id, Number(value).toPrecision(9));
+        renderRegistrationTrace();
+        if (finished) {
+          reconstruct();
+          setStatus("reconstruction-status", id.toUpperCase().replace("ROW-","Y").replace("POINT-","X") + " marker updated.", "ok");
+        }
+      },
+      onViewChange(view) { syncAxisFields("registration", view); },
+    });
+
     document.querySelectorAll(".stage-button").forEach(button => {
       button.addEventListener("click", () => activateStage(Number(button.dataset.stage)));
     });
@@ -1013,6 +1100,24 @@
         const file = byId("csv-file").files && byId("csv-file").files[0];
         if (file) loadFile(file);
       }
+    });
+
+    byId("prep-autoscale").addEventListener("click", () => prepPlotController.autoscale());
+    byId("prep-reset-x").addEventListener("click", () => prepPlotController.fullX());
+    byId("prep-apply-axes").addEventListener("click", () => applyAxisFields("prep", prepPlotController));
+    byId("registration-autoscale").addEventListener("click", () => registrationPlotController.autoscale());
+    byId("registration-reset-x").addEventListener("click", () => registrationPlotController.fullX());
+    byId("registration-apply-axes").addEventListener("click", () => applyAxisFields("registration", registrationPlotController));
+    byId("add-dark-region").addEventListener("click", () => {
+      setControl("dark-mode", "manual_regions");
+      syncPreparationControls();
+      prepPlotController.setRegionDrawMode(true);
+      setStatus("status", "Drag across the trace to add one dark region.");
+    });
+    byId("clear-dark-regions").addEventListener("click", () => {
+      byId("manual-regions").value = "";
+      prepPlotController.setRegionDrawMode(false);
+      recomputePreparation();
     });
 
     byId("signal-select").addEventListener("change", event => {
@@ -1050,7 +1155,22 @@
       );
     });
 
-    byId("window-mode").addEventListener("change", syncReconstructionControls);
+    byId("window-mode").addEventListener("change", () => {
+      syncReconstructionControls();
+      invalidateReconstruction();
+      renderRegistrationTrace();
+    });
+    [
+      "map-rows","map-cols","scan-pattern","first-row-direction",
+      "row-a","row-b","rows-apart","row-offset",
+      "point-a","point-b","points-apart",
+      "y-phase","x-period-offset","x-phase","window-fraction","window-duration","phase-aggregation",
+    ].forEach(id => {
+      byId(id).addEventListener(id === "scan-pattern" || id === "first-row-direction" || id === "phase-aggregation" ? "change" : "input", () => {
+        invalidateReconstruction();
+        renderRegistrationTrace();
+      });
+    });
 
     [
       "map-baseline",
@@ -1116,6 +1236,7 @@
     renderSourceSummary();
     renderPreparedSummary();
     renderTrace();
+    renderRegistrationTrace();
     renderReconstruction();
     renderAnalysis();
     updateStageAvailability();
