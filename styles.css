@@ -329,3 +329,5 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
 
 /* Hidden is a state contract; component display rules must never override it. */
 [hidden] { display: none !important; }
+
+.two-column:has(> [hidden]) { grid-template-columns: 1fr; }
