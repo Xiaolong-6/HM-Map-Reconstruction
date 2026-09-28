@@ -421,6 +421,7 @@
     if (!state.prepared || !state.signal) return;
     if (reconstructionTimer != null) clearTimeout(reconstructionTimer);
     reconstructionQueued = true;
+    setStatus("reconstruction-status", "Updating reconstruction…");
     const delay = Math.max(0, Number(delayMs == null ? 70 : delayMs));
     reconstructionTimer = setTimeout(() => {
       reconstructionTimer = null;
@@ -1179,7 +1180,6 @@
 
     byId("window-mode").addEventListener("change", () => {
       syncReconstructionControls();
-      invalidateReconstruction();
       renderRegistrationTrace();
       scheduleReconstruction(0);
     });
@@ -1194,9 +1194,8 @@
           ? "change"
           : "input";
       byId(id).addEventListener(eventName, () => {
-        invalidateReconstruction();
         renderRegistrationTrace();
-        scheduleReconstruction(eventName === "change" ? 0 : 90);
+        scheduleReconstruction(eventName === "change" ? 0 : 80);
       });
     });
 
