@@ -64,3 +64,43 @@ test("processed metadata preserves SI and display fields separately", () => {
   assert.equal(metadata.signal_preparation.value_gate, null);
   assert.deepEqual(metadata.display_color_limits, [-3, 4]);
 });
+
+
+test("parameter summary contains reproducibility and QC sections", () => {
+  const text = e.parameterSummary({
+    originalFilename: "demo.csv",
+    signal: "Current_A",
+    source: { sampleCount: 3, timeS: [0, 1, 2] },
+    preparation: {
+      dark_correction_mode: "none",
+      output_convention: "measured_minus_dark",
+    },
+    method: "dual_offset",
+    params: {
+      rows: 1, cols: 1, scan_pattern: "same_direction", first_row_ltr: true,
+      use_median: true, row_a_s: 0, row_b_s: 1, rows_apart: 1, row_offset: 0,
+      point_a_s: 0, point_b_s: 1, points_apart: 1, point_offset: 0,
+    },
+    processing: {
+      transform: "raw", baseline_mode: "none", normalization: "none",
+      value_scale: "linear", color_range_mode: "auto",
+    },
+    flipY: false,
+    scientificUnit: "A",
+  });
+  assert.match(text, /Map Reconstruction Parameters/);
+  assert.match(text, /File: demo\.csv/);
+  assert.match(text, /Rows × columns: 1 × 1/);
+  assert.match(text, /Warnings: None/);
+});
+
+test("HTML report is self-contained and escapes summary text", () => {
+  const html = e.htmlReport({
+    summary: "<unsafe>",
+    figures: [{ title: "Map", alt: "Map image", dataUri: "data:image/png;base64,AA==" }],
+  });
+  assert.match(html, /^<!doctype html>/);
+  assert.match(html, /data:image\/png;base64,AA==/);
+  assert.match(html, /&lt;unsafe&gt;/);
+  assert.doesNotMatch(html, /<unsafe>/);
+});
