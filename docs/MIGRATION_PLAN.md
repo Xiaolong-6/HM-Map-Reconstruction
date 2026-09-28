@@ -212,15 +212,15 @@ Real-data acceptance completed locally without committing measurement files:
 - all 5 embedded-source SHA-256 values verified;
 - all 5 projects completed load → preparation → reconstruction → save → reopen;
 - reconstructed values and sample-count arrays were exactly unchanged after Web save/reopen (maximum delta 0);
-- 7 historical HappyMeasure `single-v2` CSV files spanning 41,623–113,266 samples parsed successfully with both `Voltage_V` and `Current_A`.
+- 7 historical HappyMeasure `single-v2` CSV files spanning 41,623–113,266 samples parsed successfully with both `Voltage_V` and `Current_A`;
+- a Chrome `file://` large-data gate uses a 120,000-point HappyMeasure CSV (larger than the real corpus maximum), imports it, selects `Current_A`, and renders Signal Preparation; the reference CI run completed import + plot in 541 ms with 7.5 MiB JS heap used at the post-render measurement point.
 
 The user measurement corpus remains outside the public repository.
 
 Still required before desktop replacement:
 
 - final screenshot-based user review with representative measurements;
-- browser-memory review on larger real files;
-- final user acceptance of the offline ZIP artifact.
+- final user acceptance of the current browser UI and offline ZIP artifact.
 
 ## Final replacement gate
 
