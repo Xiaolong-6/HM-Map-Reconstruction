@@ -389,6 +389,8 @@
     invalidateReconstruction();
     if (!state.source || !state.signal) {
       state.prepared = null;
+      byId("recommend-registration-button").disabled = true;
+      renderRegistrationRecommendation(null);
       renderPreparedSummary();
       renderTrace();
       updateStageAvailability();
@@ -400,6 +402,7 @@
         state.signal,
         preparationConfig(),
       );
+      byId("recommend-registration-button").disabled = false;
       renderPreparedSummary();
       renderTrace();
       renderRegistrationTrace();
@@ -407,11 +410,63 @@
       setStatus("status", "Preparation preview updated.", "ok");
     } catch (error) {
       state.prepared = null;
+      byId("recommend-registration-button").disabled = true;
+      renderRegistrationRecommendation(null);
       renderPreparedSummary();
       renderTrace();
       setStatus("status", error.message || String(error), "error");
     }
     updateStageAvailability();
+  }
+
+  function renderRegistrationRecommendation(result) {
+    const node = byId("registration-recommendation");
+    if (!result) {
+      node.className = "recommendation-note";
+      node.textContent = "Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase.";
+      return;
+    }
+    node.className = "recommendation-note recommendation-" + result.confidence_label;
+    node.innerHTML =
+      "<strong>" + result.confidence_label.toUpperCase() + " confidence</strong> · " +
+      "Y period " + result.row_period_s.toPrecision(6) + " s · " +
+      "X period " + result.point_period_s.toPrecision(6) + " s";
+  }
+
+  function recommendRegistration() {
+    if (!state.prepared || !state.signal) {
+      setStatus("reconstruction-status", "Prepare a signal before recommending registration.", "error");
+      return;
+    }
+    try {
+      const recommendation = api.registrationRecommendation.recommend(
+        state.prepared.time_s,
+        state.prepared.values,
+        { rows: Number(byId("map-rows").value), cols: Number(byId("map-cols").value) },
+        { windowFraction: Number(byId("window-fraction").value) || 0.65 },
+      );
+      setControl("row-a", recommendation.row_a_s.toPrecision(9));
+      setControl("row-b", recommendation.row_b_s.toPrecision(9));
+      setControl("rows-apart", recommendation.rows_apart);
+      setControl("row-offset", recommendation.row_offset);
+      setControl("y-phase", recommendation.y_phase_fraction.toFixed(6));
+      setControl("point-a", recommendation.point_a_s.toPrecision(9));
+      setControl("point-b", recommendation.point_b_s.toPrecision(9));
+      setControl("points-apart", recommendation.points_apart);
+      setControl("x-period-offset", recommendation.x_period_offset);
+      setControl("x-phase", recommendation.x_phase_fraction.toFixed(6));
+      renderRegistrationRecommendation(recommendation);
+      renderRegistrationTrace();
+      scheduleReconstruction(0);
+      setStatus(
+        "reconstruction-status",
+        "Recommended registration applied · " + recommendation.confidence_label + " confidence.",
+        recommendation.confidence_label === "low" ? null : "ok",
+      );
+    } catch (error) {
+      renderRegistrationRecommendation(null);
+      setStatus("reconstruction-status", error.message || String(error), "error");
+    }
   }
 
   function syncReconstructionControls() {
@@ -1316,6 +1371,7 @@
     byId("registration-autoscale").addEventListener("click", () => registrationPlotController.autoscale());
     byId("registration-reset-x").addEventListener("click", () => registrationPlotController.fullX());
     byId("registration-apply-axes").addEventListener("click", () => applyAxisFields("registration", registrationPlotController));
+    byId("recommend-registration-button").addEventListener("click", recommendRegistration);
     byId("reset-reconstruction-maps").addEventListener("click", () => {
       rawMapController.reset();
       countMapController.setView(rawMapController.resolvedView(), false);
@@ -1384,6 +1440,9 @@
           ? "change"
           : "input";
       byId(id).addEventListener(eventName, () => {
+        if (id === "map-rows" || id === "map-cols" || id === "scan-pattern" || id === "first-row-direction") {
+          renderRegistrationRecommendation(null);
+        }
         renderRegistrationTrace();
         scheduleReconstruction(eventName === "change" ? 0 : 80);
       });

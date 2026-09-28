@@ -104,6 +104,8 @@
         <h2>Geometry</h2>
         <div class="two-column"><label class="field"><span>Rows</span><input id="map-rows" type="number" value="10" min="1" step="1"></label><label class="field"><span>Columns</span><input id="map-cols" type="number" value="10" min="1" step="1"></label></div>
         <div class="two-column"><label class="field"><span>Pattern</span><select id="scan-pattern"><option value="same_direction">Same direction</option><option value="serpentine">Serpentine</option></select></label><label class="field"><span>First row</span><select id="first-row-direction"><option value="ltr">L → R</option><option value="rtl">R → L</option></select></label></div>
+        <button id="recommend-registration-button" class="secondary-button compact-button recommend-button" type="button" disabled>Recommend registration</button>
+        <div id="registration-recommendation" class="recommendation-note">Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase.</div>
 
         <div class="section-rule"></div><h2>Registration · Phase Window</h2>
         <input id="reconstruction-method" type="hidden" value="dual_offset_phase_window">
@@ -134,7 +136,7 @@
         </div>
         <div id="reconstruction-summary" class="summary empty">No reconstruction yet.</div>
       </aside>
-      <section class="workspace">
+      <section class="workspace reconstruction-workspace">
         <div class="workspace-heading"><div><p class="eyebrow">Interactive registration</p><h2>Timing + Reconstruction</h2></div><div id="reconstruction-status" class="status">Drag YA/YB/XA/XB or edit values.</div></div>
         <div class="plot-toolbar">
           <button id="registration-autoscale" type="button">Autoscale</button>
@@ -209,6 +211,6 @@
   </main>
 
   <script src="src/shared.js"></script><script src="src/display_units.js"></script><script src="src/csv.js"></script><script src="src/importing.js"></script><script src="src/preparation.js"></script>
-  <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/interactive_plot.js"></script><script src="src/exporting.js"></script><script src="src/app.js"></script>
+  <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/interactive_plot.js"></script><script src="src/registration.js"></script><script src="src/exporting.js"></script><script src="src/app.js"></script>
 </body>
 </html>

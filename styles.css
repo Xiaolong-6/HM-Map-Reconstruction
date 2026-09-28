@@ -445,3 +445,64 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
 .analysis-controls .compact-details { margin-top:4px; font-size:11px; }
 .analysis-controls .compact-details > summary { cursor:pointer; color:#56657d; font-weight:700; }
 .analysis-controls .compact-details .secondary-button { min-height:29px; margin-top:5px; }
+
+.recommend-button { margin-top:5px !important; }
+.recommendation-note {
+  margin:5px 0 2px;
+  padding:6px 8px;
+  border:1px solid #e1e7f0;
+  border-radius:7px;
+  background:#f8faff;
+  color:#647089;
+  font-size:10.5px;
+  line-height:1.35;
+}
+.recommendation-high { border-color:#b9dfcb; background:#f1fbf5; color:#216b47; }
+.recommendation-medium { border-color:#ddd8a5; background:#fffdf0; color:#746514; }
+.recommendation-low { border-color:#ebc7c2; background:#fff5f3; color:#984438; }
+
+/* Reconstruction workspace keeps trace + both maps in one desktop viewport. */
+#stage-3 .reconstruction-workspace {
+  display:grid;
+  grid-template-rows:auto auto auto minmax(205px,.9fr) auto minmax(235px,1.1fr);
+  gap:5px;
+  overflow:hidden;
+}
+#stage-3 .reconstruction-workspace .workspace-heading { min-height:0; }
+#stage-3 .reconstruction-workspace .workspace-heading h2 { font-size:20px; }
+#stage-3 .reconstruction-workspace .plot-toolbar { margin-top:0; min-height:28px; }
+#stage-3 .reconstruction-workspace .marker-legend { margin:0; min-height:22px; gap:10px; }
+#stage-3 .reconstruction-workspace .registration-trace-card {
+  min-height:0;
+  height:auto;
+  margin:0;
+}
+#stage-3 .reconstruction-workspace #registration-trace-canvas {
+  min-height:0;
+  height:100%;
+}
+#stage-3 .reconstruction-workspace .map-view-toolbar { margin:0; min-height:27px; }
+#stage-3 .reconstruction-workspace .map-grid {
+  min-height:0;
+  height:100%;
+  gap:8px;
+}
+#stage-3 .reconstruction-workspace .map-card,
+#stage-3 .reconstruction-workspace .map-card.square-map {
+  min-height:0;
+  height:100%;
+  aspect-ratio:auto;
+}
+#stage-3 .reconstruction-workspace .map-card canvas,
+#stage-3 .reconstruction-workspace .map-card.square-map canvas {
+  min-height:0;
+  height:100%;
+  aspect-ratio:auto;
+}
+@media (max-height:760px), (max-width:1050px) {
+  #stage-3 .reconstruction-workspace { overflow-y:auto; display:block; }
+  #stage-3 .reconstruction-workspace .registration-trace-card { height:260px; margin-top:6px; }
+  #stage-3 .reconstruction-workspace .map-grid { height:auto; }
+  #stage-3 .reconstruction-workspace .map-card,
+  #stage-3 .reconstruction-workspace .map-card canvas { height:320px; }
+}
