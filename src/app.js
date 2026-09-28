@@ -397,6 +397,10 @@
 
   function syncReconstructionControls() {
     const fixed = byId("window-mode").value === "fixed_duration";
+    const fractionField = byId("window-fraction").closest(".field");
+    const durationField = byId("window-duration").closest(".field");
+    fractionField.hidden = fixed;
+    durationField.hidden = !fixed;
     byId("window-fraction").disabled = fixed;
     byId("window-duration").disabled = !fixed;
   }
