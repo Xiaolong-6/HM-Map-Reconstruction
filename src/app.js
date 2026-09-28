@@ -121,6 +121,8 @@
     byId("export-raw-button").disabled = !state.reconstruction;
     byId("export-processed-button").disabled =
       !state.processed || !Array.from(state.processed.values).some(Number.isFinite);
+    byId("export-summary-button").disabled = !state.source;
+    byId("export-report-button").disabled = !state.reconstruction;
     if (!state.prepared && state.activeStage > 1) activateStage(1);
     else if (!state.reconstruction && state.activeStage > 2) activateStage(2);
   }
@@ -801,6 +803,117 @@
     }
   }
 
+  function summaryParams() {
+    const base = baseReconstructionParams();
+    if (byId("reconstruction-method").value === "dual_offset") {
+      return {
+        ...base,
+        point_offset: Number(byId("point-offset").value),
+        use_median: byId("legacy-aggregation").value === "median",
+      };
+    }
+    return {
+      ...base,
+      y_phase_fraction: Number(byId("y-phase").value),
+      x_period_offset: Number(byId("x-period-offset").value),
+      x_phase_fraction: Number(byId("x-phase").value),
+      window_mode: byId("window-mode").value,
+      window_fraction: Number(byId("window-fraction").value),
+      window_duration_s: Number(byId("window-duration").value),
+      aggregation: byId("phase-aggregation").value,
+    };
+  }
+
+  function currentParameterSummary() {
+    return api.exporting.parameterSummary({
+      originalFilename: state.originalFilename,
+      signal: state.signal,
+      source: state.source,
+      preparation: state.prepared ? state.prepared.config : preparationConfig(),
+      method: byId("reconstruction-method").value,
+      params: state.reconstructionParams || summaryParams(),
+      processing: analysisConfig(),
+      flipY: state.flipY,
+      result: state.reconstruction,
+      processed: state.processed,
+      scientificUnit: api.displayUnits.scientificUnitForSignal(state.signal),
+    });
+  }
+
+  function exportParameterSummary() {
+    if (!state.source) return;
+    try {
+      downloadText(
+        currentParameterSummary(),
+        sourceStem() + "_map_parameters.txt",
+        "text/plain;charset=utf-8",
+      );
+      setStatus("analysis-status", "Parameter summary exported.", "ok");
+    } catch (error) {
+      setStatus("analysis-status", error.message || String(error), "error");
+    }
+  }
+
+  function captureRawTraceDataUri() {
+    if (!state.source || !state.signal) throw new Error("No raw source trace is available.");
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "fixed";
+    canvas.style.left = "-10000px";
+    canvas.style.top = "0";
+    canvas.style.width = "900px";
+    canvas.style.height = "420px";
+    document.body.appendChild(canvas);
+    try {
+      const display = rawDisplayUnit();
+      api.plotting.drawTraces(
+        canvas,
+        state.source.timeS,
+        [{ values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale }],
+        { yLabel: display.axisLabel },
+      );
+      return canvas.toDataURL("image/png");
+    } finally {
+      canvas.remove();
+    }
+  }
+
+  function exportHtmlReport() {
+    if (!state.reconstruction) return;
+    try {
+      const processedFinite =
+        state.processed && Array.from(state.processed.values).some(Number.isFinite);
+      const mapCanvas = processedFinite ? byId("processed-map-canvas") : byId("map-canvas");
+      const report = api.exporting.htmlReport({
+        summary: currentParameterSummary(),
+        figures: [
+          {
+            title: processedFinite ? "Processed map" : "Raw reconstructed map",
+            alt: "Current reconstructed map",
+            dataUri: mapCanvas.toDataURL("image/png"),
+          },
+          {
+            title: "Samples per pixel",
+            alt: "Current sample-count map",
+            dataUri: byId("count-canvas").toDataURL("image/png"),
+          },
+          {
+            title: "Raw time trace",
+            alt: "Raw source time trace",
+            dataUri: captureRawTraceDataUri(),
+          },
+        ],
+      });
+      downloadText(
+        report,
+        sourceStem() + "_map_report.html",
+        "text/html;charset=utf-8",
+      );
+      setStatus("analysis-status", "Self-contained HTML report exported.", "ok");
+    } catch (error) {
+      setStatus("analysis-status", error.message || String(error), "error");
+    }
+  }
+
   async function saveProject() {
     if (
       !state.rawBytes ||
@@ -933,6 +1046,8 @@
     byId("export-prepared-button").addEventListener("click", exportPrepared);
     byId("export-raw-button").addEventListener("click", exportRawMap);
     byId("export-processed-button").addEventListener("click", exportProcessedMap);
+    byId("export-summary-button").addEventListener("click", exportParameterSummary);
+    byId("export-report-button").addEventListener("click", exportHtmlReport);
 
     root.addEventListener("resize", () => {
       if (state.activeStage === 1) renderTrace();
