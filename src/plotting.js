@@ -282,10 +282,12 @@
       context.fillRect(x0+0.5,margin.top+ph-h,Math.max(1,x1-x0-1),h);
     }
     context.strokeStyle="#94a3b8";context.beginPath();context.moveTo(margin.left,margin.top);context.lineTo(margin.left,margin.top+ph);context.lineTo(margin.left+pw,margin.top+ph);context.stroke();
-    context.fillStyle="#68738a";context.font="12px ui-sans-serif, system-ui, sans-serif";context.textAlign="center";
+    context.fillStyle="#68738a";context.font="12px ui-sans-serif, system-ui, sans-serif";
+    context.textAlign="left";
     context.fillText(formatTick(histogram.minimum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left,margin.top+ph+20);
+    context.textAlign="right";
     context.fillText(formatTick(histogram.maximum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left+pw,margin.top+ph+20);
-    context.font="11px ui-sans-serif, system-ui, sans-serif";context.textAlign="right";
+    context.font="11px ui-sans-serif, system-ui, sans-serif";
     context.fillText(
       "n="+histogram.shown_count+"  mean="+formatTick(histogram.mean*scale,(histogram.maximum-histogram.minimum)*scale)+suffix+
       "  median="+formatTick(histogram.median*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,

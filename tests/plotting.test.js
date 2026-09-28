@@ -47,3 +47,9 @@ test("tick formatting keeps small scientific values readable",()=>{
   assert.equal(p.formatTick(120,120),"120");
   assert.equal(p.formatTick(24,120),"24");
 });
+
+
+test("histogram endpoint labels use compact tick formatter",()=>{
+  assert.equal(p.formatTick(1.658e-6,1e-6),"1.658e-6");
+  assert.equal(p.formatTick(-2.4e-6,1e-6),"-2.4e-6");
+});
