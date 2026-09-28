@@ -34,6 +34,69 @@
       .replaceAll("'", "&#039;");
   }
 
+  function rawDisplayUnit() {
+    const values = state.source && state.signal ? state.source.signals[state.signal] : null;
+    return api.displayUnits.displayUnitForSignal(state.signal || "", values);
+  }
+
+  function processingShapeFromControls() {
+    return {
+      transform: byId("map-transform").value,
+      normalization: byId("map-normalization").value,
+      value_scale: byId("value-scale").value,
+    };
+  }
+
+  function normalizationReferenceScale(config) {
+    const transform = config.transform || "raw";
+    return ["raw", "absolute", "negate"].includes(transform) ? rawDisplayUnit().scale : 1;
+  }
+
+  function processingDisplayScale(config) {
+    const current = config || processingShapeFromControls();
+    if (
+      current.transform === "custom" ||
+      current.normalization !== "none" ||
+      current.value_scale === "log10"
+    ) return 1;
+    return rawDisplayUnit().scale;
+  }
+
+  function currentDisplayUnit() {
+    const raw = rawDisplayUnit();
+    if (!state.processed) return raw;
+    if (state.processed.is_dimensionless) {
+      return api.displayUnits.displayUnit(state.processed.value_label, "", 1);
+    }
+    return api.displayUnits.displayUnit(
+      state.processed.value_label,
+      raw.unit,
+      raw.scale,
+    );
+  }
+
+  function withUnit(label, unit) {
+    return unit ? label + " (" + unit + ")" : label;
+  }
+
+  function updateDisplayUnitLabels() {
+    const raw = rawDisplayUnit();
+    const shape = processingShapeFromControls();
+    const referenceUnit = normalizationReferenceScale(shape) === raw.scale ? raw.unit : "";
+    const displayUnit = processingDisplayScale(shape) === raw.scale ? raw.unit : "";
+
+    byId("constant-baseline-label").textContent = withUnit("Constant baseline", raw.unit);
+    byId("gate-min-label").textContent = withUnit("Gate min", raw.unit);
+    byId("gate-max-label").textContent = withUnit("Gate max", raw.unit);
+    byId("map-baseline-value-label").textContent = withUnit("Baseline value", raw.unit);
+    byId("normalization-reference-label").textContent = withUnit("Reference", referenceUnit);
+    byId("color-min-label").textContent = withUnit("Min", displayUnit);
+    byId("color-max-label").textContent = withUnit("Max", displayUnit);
+    byId("hist-min-label").textContent = withUnit("Min", displayUnit);
+    byId("hist-max-label").textContent = withUnit("Max", displayUnit);
+    byId("hist-width-label").textContent = withUnit("Bin width", displayUnit);
+  }
+
   function activateStage(stage) {
     if (stage === 2 && !state.prepared) return;
     if (stage === 3 && !state.reconstruction) return;
@@ -112,9 +175,10 @@
   }
 
   function preparationConfig() {
+    const scale = rawDisplayUnit().scale || 1;
     return {
       dark_correction_mode: byId("dark-mode").value,
-      constant_baseline: Number(byId("constant-baseline").value),
+      constant_baseline: Number(byId("constant-baseline").value) / scale,
       manual_dark_regions: parseManualRegions(),
       manual_region_fit: byId("manual-fit").value,
       rolling_quantile: Number(byId("rolling-quantile").value) / 100,
@@ -122,8 +186,8 @@
       rolling_trend: byId("rolling-trend").value,
       response_direction: byId("response-direction").value,
       value_gate_enabled: byId("gate-enabled").checked,
-      value_gate_min: Number(byId("gate-min").value),
-      value_gate_max: Number(byId("gate-max").value),
+      value_gate_min: Number(byId("gate-min").value) / scale,
+      value_gate_max: Number(byId("gate-max").value) / scale,
       apply_baseline: byId("apply-baseline").checked,
       invert_signal: byId("invert-signal").checked,
     };
@@ -171,14 +235,15 @@
       return;
     }
     empty.classList.add("hidden");
-    const series = [{ values: state.source.signals[state.signal], color: "#275fe6" }];
+    const display = rawDisplayUnit();
+    const series = [{ values: state.source.signals[state.signal], color: "#275fe6", scale: display.scale }];
     if (state.prepared && state.prepared.baseline) {
-      series.push({ values: state.prepared.baseline, color: "#d97706", dash: [6, 4] });
+      series.push({ values: state.prepared.baseline, color: "#d97706", dash: [6, 4], scale: display.scale });
     }
     if (state.prepared) {
-      series.push({ values: state.prepared.values, color: "#168a62" });
+      series.push({ values: state.prepared.values, color: "#168a62", scale: display.scale });
     }
-    api.plotting.drawTraces(canvas, state.source.timeS, series, { yLabel: state.signal });
+    api.plotting.drawTraces(canvas, state.source.timeS, series, { yLabel: display.axisLabel });
   }
 
   function invalidateReconstruction() {
@@ -330,6 +395,8 @@
     }
     mapEmpty.classList.add("hidden");
     countEmpty.classList.add("hidden");
+    const display = rawDisplayUnit();
+    byId("raw-map-title").textContent = "Reconstructed values" + (display.unit ? " · " + display.unit : "");
     api.plotting.drawHeatmap(
       mapCanvas,
       state.reconstruction.values,
@@ -353,8 +420,10 @@
     byId("normalization-reference-field").hidden = byId("map-normalization").value !== "reference";
     byId("color-percentiles").hidden = byId("color-range-mode").value !== "percentile";
     byId("color-manual").hidden = byId("color-range-mode").value !== "manual";
+    byId("hist-range-manual").hidden = byId("hist-range-mode").value !== "manual";
     byId("hist-count-field").hidden = byId("hist-bin-mode").value !== "count";
     byId("hist-width-field").hidden = byId("hist-bin-mode").value !== "width";
+    updateDisplayUnitLabels();
   }
 
   function optionalNumber(id) {
@@ -366,28 +435,43 @@
     const baselineMode = byId("map-baseline").value;
     const normalization = byId("map-normalization").value;
     const colorRangeMode = byId("color-range-mode").value;
+    const shape = processingShapeFromControls();
+    const rawScale = rawDisplayUnit().scale || 1;
+    const referenceScale = normalizationReferenceScale(shape) || 1;
+    const displayScale = processingDisplayScale(shape) || 1;
+    const baselineValue = baselineMode === "manual" ? optionalNumber("map-baseline-value") : null;
+    const referenceValue = normalization === "reference" ? optionalNumber("normalization-reference") : null;
+    const colorMin = colorRangeMode === "manual" ? optionalNumber("color-min") : null;
+    const colorMax = colorRangeMode === "manual" ? optionalNumber("color-max") : null;
     return {
       baseline_mode: baselineMode,
-      baseline_value: baselineMode === "manual" ? optionalNumber("map-baseline-value") : null,
+      baseline_value: baselineValue == null ? null : baselineValue / rawScale,
       baseline_percentile: Number(byId("map-baseline-percentile").value),
-      transform: byId("map-transform").value,
+      transform: shape.transform,
       custom_expression: byId("custom-expression").value,
       normalization,
-      normalization_reference: normalization === "reference" ? optionalNumber("normalization-reference") : null,
-      value_scale: byId("value-scale").value,
+      normalization_reference: referenceValue == null ? null : referenceValue / referenceScale,
+      value_scale: shape.value_scale,
       color_range_mode: colorRangeMode,
-      color_min: colorRangeMode === "manual" ? optionalNumber("color-min") : null,
-      color_max: colorRangeMode === "manual" ? optionalNumber("color-max") : null,
+      color_min: colorMin == null ? null : colorMin / displayScale,
+      color_max: colorMax == null ? null : colorMax / displayScale,
       percentile_low: Number(byId("color-low").value),
       percentile_high: Number(byId("color-high").value),
     };
   }
 
   function histogramConfig() {
+    const displayScale = processingDisplayScale(processingShapeFromControls()) || 1;
+    const rangeMode = byId("hist-range-mode").value;
+    const minimum = rangeMode === "manual" ? optionalNumber("hist-min") : null;
+    const maximum = rangeMode === "manual" ? optionalNumber("hist-max") : null;
     return {
+      range_mode: rangeMode,
+      minimum: minimum == null ? null : minimum / displayScale,
+      maximum: maximum == null ? null : maximum / displayScale,
       bin_mode: byId("hist-bin-mode").value,
       bin_count: Number(byId("hist-count").value),
-      bin_width: Number(byId("hist-width").value),
+      bin_width: Number(byId("hist-width").value) / displayScale,
     };
   }
 
@@ -420,7 +504,7 @@
         "<dt>Baseline</dt><dd>" +
         (state.processed.baseline_used == null
           ? "None"
-          : state.processed.baseline_used.toPrecision(6)) +
+          : api.displayUnits.formatDisplayValue(state.processed.baseline_used, rawDisplayUnit())) +
         "</dd>" +
         "<dt>Warnings</dt><dd>" + state.processed.warnings.length + "</dd>" +
         "<dt>Label</dt><dd>" + escapeHtml(state.processed.value_label) + "</dd>" +
@@ -451,6 +535,10 @@
       return;
     }
 
+    const display = currentDisplayUnit();
+    byId("processed-map-title").textContent = "Processed map" + (display.unit ? " · " + display.unit : "");
+    byId("histogram-title").textContent = "Value distribution" + (display.unit ? " · " + display.unit : "");
+
     if (Array.from(state.processed.values).some(Number.isFinite)) {
       mapEmpty.classList.add("hidden");
       api.plotting.drawHeatmap(
@@ -467,7 +555,7 @@
 
     if (state.histogram) {
       histogramEmpty.classList.add("hidden");
-      api.plotting.drawHistogram(histogramCanvas, state.histogram);
+      api.plotting.drawHistogram(histogramCanvas, state.histogram, { scale: display.scale, unit: display.unit });
     } else {
       histogramEmpty.classList.remove("hidden");
       api.plotting.clearCanvas(histogramCanvas);
@@ -492,8 +580,9 @@
     state.flipY = saved.flip_y;
     populateSignals(saved.source.signal);
 
+    const rawUnit = rawDisplayUnit();
     setControl("dark-mode", prep.dark_correction_mode);
-    setControl("constant-baseline", prep.constant_baseline);
+    setControl("constant-baseline", prep.constant_baseline * rawUnit.scale);
     setControl(
       "manual-regions",
       prep.manual_dark_regions.map(region => region.start_s + "," + region.end_s).join("\n"),
@@ -505,8 +594,8 @@
     setControl("response-direction", prep.response_direction);
     setControl("gate-enabled", prep.value_gate_enabled);
     if (prep.value_gate_enabled) {
-      setControl("gate-min", prep.value_gate_min);
-      setControl("gate-max", prep.value_gate_max);
+      setControl("gate-min", prep.value_gate_min * rawUnit.scale);
+      setControl("gate-max", prep.value_gate_max * rawUnit.scale);
     }
     setControl("apply-baseline", prep.apply_baseline);
     setControl("invert-signal", prep.invert_signal);
@@ -540,25 +629,26 @@
     }
 
     setControl("map-baseline", proc.baseline_mode);
-    if (proc.baseline_value != null) setControl("map-baseline-value", proc.baseline_value);
     setControl("map-baseline-percentile", proc.baseline_percentile);
     setControl("map-transform", proc.transform);
     setControl("custom-expression", proc.custom_expression);
     setControl("map-normalization", proc.normalization);
-    if (proc.normalization_reference != null) {
-      setControl("normalization-reference", proc.normalization_reference);
-    }
     setControl("value-scale", proc.value_scale);
     setControl("flip-y", state.flipY);
     setControl("color-range-mode", proc.color_range_mode);
-    if (proc.color_min != null) setControl("color-min", proc.color_min);
-    if (proc.color_max != null) setControl("color-max", proc.color_max);
     setControl("color-low", proc.percentile_low);
     setControl("color-high", proc.percentile_high);
+    const referenceScale = normalizationReferenceScale(proc) || 1;
+    const displayScale = processingDisplayScale(proc) || 1;
+    setControl("map-baseline-value", (proc.baseline_value == null ? 0 : proc.baseline_value) * rawUnit.scale);
+    setControl("normalization-reference", (proc.normalization_reference == null ? 0 : proc.normalization_reference) * referenceScale);
+    setControl("color-min", (proc.color_min == null ? 0 : proc.color_min) * displayScale);
+    setControl("color-max", (proc.color_max == null ? 0 : proc.color_max) * displayScale);
 
     syncPreparationControls();
     syncReconstructionControls();
     syncAnalysisControls();
+    updateDisplayUnitLabels();
     renderSourceSummary();
     byId("metadata-view").textContent = JSON.stringify(state.source.metadata, null, 2);
 
@@ -667,7 +757,16 @@
       loadProjectFile(event.target.files && event.target.files[0]);
     });
     byId("signal-select").addEventListener("change", event => {
+      const previous = rawDisplayUnit();
+      const constantSi = Number(byId("constant-baseline").value) / (previous.scale || 1);
+      const gateMinSi = Number(byId("gate-min").value) / (previous.scale || 1);
+      const gateMaxSi = Number(byId("gate-max").value) / (previous.scale || 1);
       state.signal = event.target.value;
+      const next = rawDisplayUnit();
+      setControl("constant-baseline", constantSi * next.scale);
+      setControl("gate-min", gateMinSi * next.scale);
+      setControl("gate-max", gateMaxSi * next.scale);
+      updateDisplayUnitLabels();
       recomputePreparation();
     });
 
@@ -713,6 +812,9 @@
       "color-high",
       "color-min",
       "color-max",
+      "hist-range-mode",
+      "hist-min",
+      "hist-max",
       "hist-bin-mode",
       "hist-count",
       "hist-width",

@@ -7,6 +7,7 @@ const { webcrypto } = require("node:crypto");
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 require("../src/shared.js");
+require("../src/display_units.js");
 require("../src/csv.js");
 require("../src/preparation.js");
 require("../src/reconstruction.js");
@@ -46,6 +47,35 @@ if (!fs.existsSync(oraclePath)) {
 
   test("oracle pin is the declared HappyMeasure baseline", () => {
     assert.equal(oracle.oracle.commit, "402b88f1c42cff41bf6054e1724bc62b4deb7af3");
+  });
+
+  test("engineering display units match Python oracle", () => {
+    const items = oracle.display_units;
+    const current = api.displayUnits.displayUnitForSignal(
+      "Current_A",
+      Float64Array.from([-103e-6, 0, 125e-6]),
+    );
+    assert.equal(current.label, items.current.label);
+    assert.equal(current.unit, items.current.unit);
+    close(current.scale, items.current.scale, 0);
+    assert.equal(current.axisLabel, items.current.axis_label);
+    assert.equal(api.displayUnits.formatDisplayValue(-103e-6, current), items.current.formatted);
+
+    const voltage = api.displayUnits.displayUnitForSignal(
+      "Voltage_V",
+      Float64Array.from([0.1, 0.2]),
+    );
+    assert.equal(voltage.unit, items.voltage.unit);
+    close(voltage.scale, items.voltage.scale, 0);
+    assert.equal(voltage.axisLabel, items.voltage.axis_label);
+
+    const defaultCurrent = api.displayUnits.displayUnitForSignal("Current_A");
+    assert.equal(defaultCurrent.unit, items.default_current.unit);
+    close(defaultCurrent.scale, items.default_current.scale, 0);
+
+    const unknown = api.displayUnits.displayUnitForSignal("Auxiliary");
+    assert.equal(unknown.axisLabel, items.unknown.axis_label);
+    close(unknown.scale, items.unknown.scale, 0);
   });
 
   test("CSV import matches Python oracle", () => {

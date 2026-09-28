@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from map_reconstruction.importers.happymeasure import import_happymeasure_csv_bytes
+from map_reconstruction.display_units import display_unit_for_signal, format_display_value
 from map_reconstruction.methods.dual_offset import reconstruct_map, solve_timing
 from map_reconstruction.methods.phase_window import (
     convert_legacy_to_phase_window,
@@ -195,6 +196,15 @@ hist = make_histogram_data(
 )
 assert hist is not None
 
+current_display = display_unit_for_signal(
+    "Current_A", np.asarray([-103e-6, 0.0, 125e-6])
+)
+voltage_display = display_unit_for_signal(
+    "Voltage_V", np.asarray([0.1, 0.2])
+)
+default_current_display = display_unit_for_signal("Current_A")
+unknown_display = display_unit_for_signal("Auxiliary")
+
 oracle = {
     "oracle": {
         "repository": "Xiaolong-6/HappyMeasure",
@@ -320,6 +330,31 @@ oracle = {
             "phase_values": enc_array(legacy_phase_result.values),
             "phase_sample_counts": legacy_phase_result.sample_counts.ravel().tolist(),
             "window_width_s": legacy_conversion.timing.window_width_s,
+        },
+    },
+    "display_units": {
+        "current": {
+            "label": current_display.label,
+            "unit": current_display.unit,
+            "scale": current_display.scale,
+            "axis_label": current_display.axis_label,
+            "formatted": format_display_value(-103e-6, current_display),
+        },
+        "voltage": {
+            "label": voltage_display.label,
+            "unit": voltage_display.unit,
+            "scale": voltage_display.scale,
+            "axis_label": voltage_display.axis_label,
+        },
+        "default_current": {
+            "unit": default_current_display.unit,
+            "scale": default_current_display.scale,
+            "axis_label": default_current_display.axis_label,
+        },
+        "unknown": {
+            "unit": unknown_display.unit,
+            "scale": unknown_display.scale,
+            "axis_label": unknown_display.axis_label,
         },
     },
     "processing": {

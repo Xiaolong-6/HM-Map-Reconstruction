@@ -24,7 +24,8 @@
       if (!Number.isFinite(x)) continue;
       xMin = Math.min(xMin, x); xMax = Math.max(xMax, x);
       for (const item of series) {
-        const y = item.values[index];
+        const scale = Number.isFinite(item.scale) ? item.scale : 1;
+        const y = item.values[index] * scale;
         if (!Number.isFinite(y)) continue;
         yMin = Math.min(yMin, y); yMax = Math.max(yMax, y);
       }
@@ -82,7 +83,8 @@
       context.beginPath();
       let started = false;
       for (let index = 0; index < timeS.length; index += stride) {
-        const value = item.values[index];
+        const scale = Number.isFinite(item.scale) ? item.scale : 1;
+        const value = item.values[index] * scale;
         if (!Number.isFinite(value)) { started = false; continue; }
         const x = xPixel(timeS[index]), y = yPixel(value);
         if (!started) { context.moveTo(x, y); started = true; }
@@ -160,9 +162,12 @@
     context.drawImage(source, 0, 0, canvas.clientWidth, canvas.clientHeight);
   }
 
-  function drawHistogram(canvas, histogram) {
+  function drawHistogram(canvas, histogram, options) {
     const context=clearCanvas(canvas);
     if(!histogram||!histogram.counts.length)return;
+    const scale=options&&Number.isFinite(options.scale)?options.scale:1;
+    const unit=options&&options.unit?String(options.unit):"";
+    const suffix=unit?" "+unit:"";
     const width=canvas.clientWidth,height=canvas.clientHeight,margin={left:48,right:18,top:28,bottom:42};
     const pw=Math.max(1,width-margin.left-margin.right),ph=Math.max(1,height-margin.top-margin.bottom);
     const maxCount=Math.max(1,...histogram.counts);
@@ -175,9 +180,9 @@
     }
     context.strokeStyle="#94a3b8";context.beginPath();context.moveTo(margin.left,margin.top);context.lineTo(margin.left,margin.top+ph);context.lineTo(margin.left+pw,margin.top+ph);context.stroke();
     context.fillStyle="#68738a";context.font="12px ui-sans-serif, system-ui, sans-serif";context.textAlign="center";
-    context.fillText(histogram.minimum.toPrecision(4),margin.left,margin.top+ph+20);
-    context.fillText(histogram.maximum.toPrecision(4),margin.left+pw,margin.top+ph+20);
-    context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+histogram.mean.toPrecision(5)+"  median="+histogram.median.toPrecision(5),margin.left,16);
+    context.fillText((histogram.minimum*scale).toPrecision(4)+suffix,margin.left,margin.top+ph+20);
+    context.fillText((histogram.maximum*scale).toPrecision(4)+suffix,margin.left+pw,margin.top+ph+20);
+    context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+(histogram.mean*scale).toPrecision(5)+suffix+"  median="+(histogram.median*scale).toPrecision(5)+suffix,margin.left,16);
   }
 
   api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram });

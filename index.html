@@ -28,7 +28,7 @@
         <div class="section-rule"></div>
         <h2>Signal preparation</h2>
         <label class="field"><span>Baseline model</span><select id="dark-mode"><option value="none">None</option><option value="constant">Constant</option><option value="manual_regions">Manual dark regions</option><option value="rolling_quantile">Rolling quantile</option></select></label>
-        <div class="mode-block" data-mode="constant" hidden><label class="field"><span>Constant baseline</span><input id="constant-baseline" type="number" value="0" step="any"></label></div>
+        <div class="mode-block" data-mode="constant" hidden><label class="field"><span id="constant-baseline-label">Constant baseline</span><input id="constant-baseline" type="number" value="0" step="any"></label></div>
         <div class="mode-block" data-mode="manual_regions" hidden>
           <label class="field"><span>Dark regions · one <code>start,end</code> pair per line</span><textarea id="manual-regions" rows="4" placeholder="0,1&#10;10,11"></textarea></label>
           <label class="field"><span>Region fit</span><select id="manual-fit"><option value="constant">Constant</option><option value="linear">Linear</option><option value="quadratic">Quadratic</option></select></label>
@@ -42,7 +42,7 @@
         <label class="check-field"><input id="apply-baseline" type="checkbox"><span>Subtract baseline B(t)</span></label>
         <label class="check-field"><input id="invert-signal" type="checkbox"><span>Invert prepared signal</span></label>
         <label class="check-field"><input id="gate-enabled" type="checkbox"><span>Limit baseline candidates by raw value</span></label>
-        <div id="gate-fields" class="two-column" hidden><label class="field"><span>Gate min</span><input id="gate-min" type="number" value="0" step="any"></label><label class="field"><span>Gate max</span><input id="gate-max" type="number" value="1" step="any"></label></div>
+        <div id="gate-fields" class="two-column" hidden><label class="field"><span id="gate-min-label">Gate min</span><input id="gate-min" type="number" value="0" step="any"></label><label class="field"><span id="gate-max-label">Gate max</span><input id="gate-max" type="number" value="1" step="any"></label></div>
         <div id="prepared-summary" class="summary empty">Preparation preview unavailable.</div>
         <details><summary>Source metadata</summary><pre id="metadata-view">{}</pre></details>
       </aside>
@@ -86,7 +86,7 @@
       <section class="workspace">
         <div class="workspace-heading"><div><p class="eyebrow">Raw reconstruction</p><h2>Map + sample-count QC</h2></div><div id="reconstruction-status" class="status">Set registration parameters and reconstruct.</div></div>
         <div class="map-grid">
-          <div class="map-card"><h3>Reconstructed values</h3><canvas id="map-canvas"></canvas><div id="map-empty" class="empty-overlay">No map yet.</div></div>
+          <div class="map-card"><h3 id="raw-map-title">Reconstructed values</h3><canvas id="map-canvas"></canvas><div id="map-empty" class="empty-overlay">No map yet.</div></div>
           <div class="map-card"><h3>Samples / pixel</h3><canvas id="count-canvas"></canvas><div id="count-empty" class="empty-overlay">No sample counts yet.</div></div>
         </div>
       </section>
@@ -96,38 +96,40 @@
       <aside class="control-panel">
         <h2>Map processing</h2>
         <label class="field"><span>Baseline</span><select id="map-baseline"><option value="none">None</option><option value="manual">Manual</option><option value="mean">Mean</option><option value="median">Median</option><option value="minimum">Minimum</option><option value="maximum">Maximum</option><option value="percentile">Percentile</option></select></label>
-        <label class="field" id="map-baseline-value-field" hidden><span>Baseline value</span><input id="map-baseline-value" type="number" value="0" step="any"></label>
+        <label class="field" id="map-baseline-value-field" hidden><span id="map-baseline-value-label">Baseline value</span><input id="map-baseline-value" type="number" value="0" step="any"></label>
         <label class="field" id="map-baseline-percentile-field" hidden><span>Baseline percentile</span><input id="map-baseline-percentile" type="number" value="50" min="0" max="100" step="any"></label>
         <label class="field"><span>Transform</span><select id="map-transform"><option value="raw">Raw</option><option value="absolute">Absolute</option><option value="negate">Negate</option><option value="custom">Custom expression</option></select></label>
         <label class="field" id="custom-expression-field" hidden><span>Expression in x</span><input id="custom-expression" value="x"></label>
         <label class="field"><span>Normalization</span><select id="map-normalization"><option value="none">None</option><option value="max_magnitude">Max magnitude</option><option value="min_max">Min–max</option><option value="reference">Reference</option></select></label>
-        <label class="field" id="normalization-reference-field" hidden><span>Reference</span><input id="normalization-reference" type="number" value="1" step="any"></label>
+        <label class="field" id="normalization-reference-field" hidden><span id="normalization-reference-label">Reference</span><input id="normalization-reference" type="number" value="1" step="any"></label>
         <label class="field"><span>Value scale</span><select id="value-scale"><option value="linear">Linear</option><option value="log10">log10</option></select></label>
         <label class="check-field"><input id="flip-y" type="checkbox"><span>Flip Y display</span></label>
         <div class="section-rule"></div>
         <h2>Color range</h2>
         <label class="field"><span>Mode</span><select id="color-range-mode"><option value="auto">Auto</option><option value="percentile">Percentile</option><option value="manual">Manual</option></select></label>
         <div id="color-percentiles" class="two-column" hidden><label class="field"><span>Low / %</span><input id="color-low" type="number" value="1" step="any"></label><label class="field"><span>High / %</span><input id="color-high" type="number" value="99" step="any"></label></div>
-        <div id="color-manual" class="two-column" hidden><label class="field"><span>Min</span><input id="color-min" type="number" value="0" step="any"></label><label class="field"><span>Max</span><input id="color-max" type="number" value="1" step="any"></label></div>
+        <div id="color-manual" class="two-column" hidden><label class="field"><span id="color-min-label">Min</span><input id="color-min" type="number" value="0" step="any"></label><label class="field"><span id="color-max-label">Max</span><input id="color-max" type="number" value="1" step="any"></label></div>
         <div class="section-rule"></div>
         <h2>Distribution</h2>
+        <label class="field"><span>Range</span><select id="hist-range-mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></label>
+        <div id="hist-range-manual" class="two-column" hidden><label class="field"><span id="hist-min-label">Min</span><input id="hist-min" type="number" value="0" step="any"></label><label class="field"><span id="hist-max-label">Max</span><input id="hist-max" type="number" value="1" step="any"></label></div>
         <label class="field"><span>Bins</span><select id="hist-bin-mode"><option value="auto">Auto</option><option value="count">Count</option><option value="width">Width</option></select></label>
         <label class="field" id="hist-count-field" hidden><span>Bin count</span><input id="hist-count" type="number" value="50" min="1" step="1"></label>
-        <label class="field" id="hist-width-field" hidden><span>Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
+        <label class="field" id="hist-width-field" hidden><span id="hist-width-label">Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
         <div id="analysis-summary" class="summary empty">No processed map.</div>
       </aside>
       <section class="workspace">
         <div class="workspace-heading"><div><p class="eyebrow">Processed scientific values</p><h2>Map Analysis</h2></div><div id="analysis-status" class="status">Processing follows the raw reconstruction.</div></div>
         <div class="map-grid analysis-grid">
-          <div class="map-card"><h3>Processed map</h3><canvas id="processed-map-canvas"></canvas><div id="processed-map-empty" class="empty-overlay">No processed map yet.</div></div>
-          <div class="map-card"><h3>Value distribution</h3><canvas id="histogram-canvas"></canvas><div id="histogram-empty" class="empty-overlay">No distribution yet.</div></div>
+          <div class="map-card"><h3 id="processed-map-title">Processed map</h3><canvas id="processed-map-canvas"></canvas><div id="processed-map-empty" class="empty-overlay">No processed map yet.</div></div>
+          <div class="map-card"><h3 id="histogram-title">Value distribution</h3><canvas id="histogram-canvas"></canvas><div id="histogram-empty" class="empty-overlay">No distribution yet.</div></div>
         </div>
       </section>
     </section>
   </main>
 
 
-  <script src="src/shared.js"></script><script src="src/csv.js"></script><script src="src/preparation.js"></script>
+  <script src="src/shared.js"></script><script src="src/display_units.js"></script><script src="src/csv.js"></script><script src="src/preparation.js"></script>
   <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/app.js"></script>
 </body>
 </html>
