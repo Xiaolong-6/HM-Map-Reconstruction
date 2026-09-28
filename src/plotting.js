@@ -17,7 +17,7 @@
     return context;
   }
 
-  function bounds(timeS, series) {
+  function traceDataBounds(timeS, series) {
     let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
     for (let index = 0; index < timeS.length; index += 1) {
       const x = timeS[index];
@@ -30,19 +30,7 @@
         yMin = Math.min(yMin, y); yMax = Math.max(yMax, y);
       }
     }
-    return { xMin, xMax, yMin, yMax };
-  }
-
-  function drawTraces(canvas, timeS, series, options) {
-    const context = clearCanvas(canvas);
-    const width = canvas.clientWidth, height = canvas.clientHeight;
-    const margin = { left: 68, right: 24, top: 25, bottom: 46 };
-    const plotWidth = Math.max(1, width - margin.left - margin.right);
-    const plotHeight = Math.max(1, height - margin.top - margin.bottom);
-    if (!timeS || !timeS.length || !series || !series.length) return;
-
-    let { xMin, xMax, yMin, yMax } = bounds(timeS, series);
-    if (!Number.isFinite(xMin) || !Number.isFinite(yMin)) return;
+    if (!Number.isFinite(xMin) || !Number.isFinite(yMin)) return null;
     if (xMax === xMin) { xMin -= 0.5; xMax += 0.5; }
     if (yMax === yMin) {
       const pad = Math.max(Math.abs(yMin) * 0.01, 1e-12);
@@ -51,9 +39,64 @@
       const pad = (yMax - yMin) * 0.05;
       yMin -= pad; yMax += pad;
     }
+    return Object.freeze({ xMin, xMax, yMin, yMax });
+  }
 
-    const xPixel = value => margin.left + (value - xMin) / (xMax - xMin) * plotWidth;
-    const yPixel = value => margin.top + (1 - (value - yMin) / (yMax - yMin)) * plotHeight;
+  function traceViewport(width, height, timeS, series, view) {
+    const data = traceDataBounds(timeS, series);
+    if (!data) return null;
+    const requested = view || {};
+    const xMin = Number.isFinite(requested.xMin) ? requested.xMin : data.xMin;
+    const xMax = Number.isFinite(requested.xMax) ? requested.xMax : data.xMax;
+    const yMin = Number.isFinite(requested.yMin) ? requested.yMin : data.yMin;
+    const yMax = Number.isFinite(requested.yMax) ? requested.yMax : data.yMax;
+    if (!(xMin < xMax) || !(yMin < yMax)) return null;
+    const margin = { left: 68, right: 24, top: 25, bottom: 46 };
+    const plotWidth = Math.max(1, width - margin.left - margin.right);
+    const plotHeight = Math.max(1, height - margin.top - margin.bottom);
+    return Object.freeze({
+      xMin, xMax, yMin, yMax, data,
+      left: margin.left, right: margin.left + plotWidth,
+      top: margin.top, bottom: margin.top + plotHeight,
+      plotWidth, plotHeight,
+    });
+  }
+
+  function xToPixel(value, viewport) {
+    return viewport.left + (value - viewport.xMin) / (viewport.xMax - viewport.xMin) * viewport.plotWidth;
+  }
+  function yToPixel(value, viewport) {
+    return viewport.top + (1 - (value - viewport.yMin) / (viewport.yMax - viewport.yMin)) * viewport.plotHeight;
+  }
+  function pixelToX(pixel, viewport) {
+    return viewport.xMin + (pixel - viewport.left) / viewport.plotWidth * (viewport.xMax - viewport.xMin);
+  }
+  function pixelToY(pixel, viewport) {
+    return viewport.yMax - (pixel - viewport.top) / viewport.plotHeight * (viewport.yMax - viewport.yMin);
+  }
+
+  function drawTraces(canvas, timeS, series, options) {
+    const context = clearCanvas(canvas);
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    if (!timeS || !timeS.length || !series || !series.length) return null;
+    const viewport = traceViewport(width, height, timeS, series, options && options.view);
+    if (!viewport) return null;
+    const margin = { left: viewport.left, right: width - viewport.right, top: viewport.top, bottom: height - viewport.bottom };
+    const plotWidth = viewport.plotWidth, plotHeight = viewport.plotHeight;
+    const { xMin, xMax, yMin, yMax } = viewport;
+    const xPixel = value => xToPixel(value, viewport);
+    const yPixel = value => yToPixel(value, viewport);
+
+    if (options && options.regions) {
+      for (const region of options.regions) {
+        const start = Math.max(xMin, Math.min(xMax, Number(region.start_s)));
+        const end = Math.max(xMin, Math.min(xMax, Number(region.end_s)));
+        if (!(start < end)) continue;
+        const left = xPixel(start), right = xPixel(end);
+        context.fillStyle = region.color || "rgba(245,158,11,.14)";
+        context.fillRect(left, viewport.top, Math.max(1, right - left), plotHeight);
+      }
+    }
 
     context.strokeStyle = "#e3e8f2";
     context.lineWidth = 1;
@@ -94,6 +137,34 @@
     });
     context.setLineDash([]);
 
+    if (options && options.markers) {
+      context.save();
+      context.font = "700 11px ui-sans-serif, system-ui, sans-serif";
+      context.textBaseline = "top";
+      for (const marker of options.markers) {
+        const value = Number(marker.value);
+        if (!Number.isFinite(value) || value < xMin || value > xMax) continue;
+        const x = xPixel(value);
+        context.strokeStyle = marker.color || "#dc2626";
+        context.lineWidth = 1.5;
+        context.setLineDash(marker.dash || []);
+        context.beginPath();
+        context.moveTo(x, viewport.top);
+        context.lineTo(x, viewport.bottom);
+        context.stroke();
+        context.setLineDash([]);
+        const label = String(marker.label || marker.id || "");
+        const width = context.measureText(label).width + 8;
+        const left = Math.max(viewport.left, Math.min(viewport.right - width, x - width / 2));
+        context.fillStyle = marker.color || "#dc2626";
+        context.fillRect(left, viewport.top + 3, width, 18);
+        context.fillStyle = "#fff";
+        context.textAlign = "center";
+        context.fillText(label, left + width / 2, viewport.top + 6);
+      }
+      context.restore();
+    }
+
     context.fillStyle = "#344054";
     context.textAlign = "center";
     context.textBaseline = "bottom";
@@ -103,6 +174,7 @@
     context.rotate(-Math.PI / 2);
     context.fillText((options && options.yLabel) || "Signal", 0, 0);
     context.restore();
+    return viewport;
   }
 
   function drawTrace(canvas, timeS, values, options) {
@@ -204,5 +276,9 @@
     context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+(histogram.mean*scale).toPrecision(5)+suffix+"  median="+(histogram.median*scale).toPrecision(5)+suffix,margin.left,16);
   }
 
-  api.plotting = Object.freeze({ clearCanvas, drawTrace, drawTraces, paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram });
+  api.plotting = Object.freeze({
+    clearCanvas, drawTrace, drawTraces,
+    traceDataBounds, traceViewport, xToPixel, yToPixel, pixelToX, pixelToY,
+    paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram
+  });
 })(typeof window !== "undefined" ? window : globalThis);

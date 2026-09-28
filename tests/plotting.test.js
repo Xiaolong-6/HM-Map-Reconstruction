@@ -24,3 +24,19 @@ test("named palettes and inversion are display-only lookup choices",()=>{
   assert.notDeepEqual(p.paletteStops("Plasma",false),viridis);
   assert.deepEqual(p.paletteStops("unknown",false),viridis);
 });
+
+
+test("trace viewport accepts explicit axis ranges",()=>{
+  const viewport=p.traceViewport(
+    800, 400,
+    [0,1,2],
+    [{values:[10,20,30],scale:1}],
+    {xMin:0.5,xMax:1.5,yMin:15,yMax:25},
+  );
+  assert.equal(viewport.xMin,0.5);
+  assert.equal(viewport.xMax,1.5);
+  assert.equal(viewport.yMin,15);
+  assert.equal(viewport.yMax,25);
+  assert.ok(Math.abs(p.pixelToX(p.xToPixel(1,viewport),viewport)-1)<1e-12);
+  assert.ok(Math.abs(p.pixelToY(p.yToPixel(20,viewport),viewport)-20)<1e-12);
+});
