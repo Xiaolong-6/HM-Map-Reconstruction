@@ -1,0 +1,102 @@
+name: Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Web prototype
+        uses: actions/checkout@v4
+        with:
+          ref: feat/web-prototype
+
+      - name: Checkout pinned HappyMeasure oracle
+        uses: actions/checkout@v4
+        with:
+          repository: Xiaolong-6/HappyMeasure
+          ref: 402b88f1c42cff41bf6054e1724bc62b4deb7af3
+          path: oracle-hm
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: JavaScript syntax check
+        run: |
+          for file in src/*.js tests/*.js tools/*.js; do
+            node --check "$file"
+          done
+
+      - name: Install Python oracle dependency
+        run: python -m pip install --disable-pip-version-check numpy
+
+      - name: Generate pinned Python oracle fixtures
+        env:
+          PYTHONPATH: oracle-hm/src
+        run: python tools/generate_python_oracle.py
+
+      - name: Generate Web project fixtures
+        run: node tools/create_web_project_fixture.js
+
+      - name: Validate Web projects in Python
+        env:
+          PYTHONPATH: oracle-hm/src
+        run: python tools/validate_web_project.py
+
+      - name: Run JS tests including Python oracle parity
+        env:
+          REQUIRE_PYTHON_ORACLE: "1"
+        run: npm test
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout validated Web prototype
+        uses: actions/checkout@v4
+        with:
+          ref: feat/web-prototype
+
+      - name: Prepare static site
+        run: |
+          mkdir -p dist/src
+          cp index.html styles.css dist/
+          cp src/*.js dist/src/
+          touch dist/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
