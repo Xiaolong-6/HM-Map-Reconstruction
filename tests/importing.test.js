@@ -54,3 +54,21 @@ test("HappyMeasure detection is explicit", () => {
   assert.equal(importing.looksLikeHappyMeasure("# schema,single-v2\n# section,data\nElapsed_s,x\n0,1\n"), true);
   assert.equal(importing.looksLikeHappyMeasure("time,x\n0,1\n"), false);
 });
+
+
+test("generic import retains finite rows when numeric columns contain gaps", () => {
+  const inspected = importing.inspectDelimited(
+    "time,current,aux\n0,1,10\n1,,11\n2,3,12\n3,NaN,13\n4,5,14\n",
+    "gappy.csv",
+  );
+  const current = inspected.columns.find(column => column.name === "current");
+  assert.equal(current.numeric, true);
+  assert.equal(current.finiteCount, 3);
+  const canonical = importing.canonicalizeDelimited(inspected, {
+    timeColumn: "time",
+    signalColumns: ["current", "aux"],
+  });
+  assert.equal(canonical.sampleCount, 3);
+  assert.equal(canonical.metadata.dropped_row_count, 2);
+  assert.deepEqual(Array.from(canonical.timeS), [0, 2, 4]);
+});

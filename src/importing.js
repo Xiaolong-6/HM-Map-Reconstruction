@@ -104,7 +104,8 @@
         name,
         finiteCount,
         rowCount: dataRows.length,
-        numeric: finiteCount === dataRows.length,
+        numeric: finiteCount > 0,
+        completeness: dataRows.length ? finiteCount / dataRows.length : 0,
       });
     });
 
@@ -149,6 +150,7 @@
     const timeMode = current.timeMode || "column";
     let timeValues;
     let timeLabel;
+    let timeIndex = null;
     if (timeMode === "index") {
       const interval = Number(current.sampleIntervalS);
       if (!Number.isFinite(interval) || interval <= 0) {
@@ -157,8 +159,12 @@
       timeValues = Float64Array.from({ length: model.rowCount }, (_, index) => index * interval);
       timeLabel = "Generated sample index";
     } else {
-      const timeIndex = resolveColumn(model, current.timeColumn, "Time");
-      timeValues = toFiniteColumn(model, timeIndex, "Time column");
+      timeIndex = resolveColumn(model, current.timeColumn, "Time");
+      timeValues = new Float64Array(model.rows.length);
+      for (let rowIndex = 0; rowIndex < model.rows.length; rowIndex += 1) {
+        const raw = model.rows[rowIndex][timeIndex];
+        timeValues[rowIndex] = raw === "" ? NaN : Number(raw);
+      }
       const scale = current.timeScale == null ? 1 : Number(current.timeScale);
       if (!Number.isFinite(scale) || scale <= 0) throw new Error("Time scale must be finite and greater than zero.");
       if (scale !== 1) {
@@ -176,10 +182,30 @@
     const signalsUnsorted = {};
     for (const columnIndex of signalIndices) {
       const name = model.names[columnIndex];
-      signalsUnsorted[name] = toFiniteColumn(model, columnIndex, "Signal " + JSON.stringify(name));
+      const values = new Float64Array(model.rows.length);
+      for (let rowIndex = 0; rowIndex < model.rows.length; rowIndex += 1) {
+        const raw = model.rows[rowIndex][columnIndex];
+        values[rowIndex] = raw === "" ? NaN : Number(raw);
+      }
+      signalsUnsorted[name] = values;
     }
 
-    const order = math.stableNumericOrder(timeValues);
+    const validRows = [];
+    for (let rowIndex = 0; rowIndex < model.rows.length; rowIndex += 1) {
+      if (!Number.isFinite(timeValues[rowIndex])) continue;
+      let valid = true;
+      for (const name of Object.keys(signalsUnsorted)) {
+        if (!Number.isFinite(signalsUnsorted[name][rowIndex])) { valid = false; break; }
+      }
+      if (valid) validRows.push(rowIndex);
+    }
+    if (!validRows.length) {
+      throw new Error("No rows contain finite time and all selected signal values.");
+    }
+
+    const validTimes = Float64Array.from(validRows, rowIndex => timeValues[rowIndex]);
+    const orderWithinValid = math.stableNumericOrder(validTimes);
+    const order = orderWithinValid.map(index => validRows[index]);
     const timeS = new Float64Array(order.length);
     const signals = {};
     for (const name of Object.keys(signalsUnsorted)) signals[name] = new Float64Array(order.length);
@@ -196,6 +222,9 @@
       delimiter: model.delimiter === "\t" ? "tab" : model.delimiter,
       original_time_column: timeLabel,
       imported_signal_columns: Object.keys(signals),
+      original_row_count: model.rowCount,
+      retained_row_count: timeS.length,
+      dropped_row_count: model.rowCount - timeS.length,
     };
 
     function csvCell(value) {

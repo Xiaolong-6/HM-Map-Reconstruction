@@ -19,8 +19,13 @@
       <aside class="control-panel compact-panel">
         <h2>Open</h2>
         <div class="file-actions">
-          <label class="file-picker"><span>Open data</span><input id="csv-file" type="file"></label>
-          <label class="file-picker secondary-picker"><span>Open project</span><input id="project-file" type="file" accept=".hmmap,application/zip"></label>
+          <button id="open-data-button" class="file-picker" type="button">Open data</button>
+          <button id="open-project-button" class="file-picker secondary-picker" type="button">Open project</button>
+          <input id="csv-file" class="hidden-file-input" type="file">
+          <input id="project-file" class="hidden-file-input" type="file" accept=".hmmap,application/zip">
+        </div>
+        <div id="import-drop-zone" class="import-drop-zone" tabindex="0">
+          Drop CSV / TSV / TXT / DAT here
         </div>
         <p class="hint compact-hint">HappyMeasure CSV is detected automatically. Generic numeric tables can be mapped below.</p>
 
@@ -151,29 +156,42 @@
     </section>
 
     <section class="stage" id="stage-4">
-      <aside class="control-panel compact-panel">
-        <h2>Map processing</h2>
-        <label class="field"><span>Baseline</span><select id="map-baseline"><option value="none">None</option><option value="manual">Manual</option><option value="mean">Mean</option><option value="median">Median</option><option value="minimum">Minimum</option><option value="maximum">Maximum</option><option value="percentile">Percentile</option></select></label>
-        <label class="field" id="map-baseline-value-field" hidden><span id="map-baseline-value-label">Baseline value</span><input id="map-baseline-value" type="number" value="0" step="any"></label>
-        <label class="field" id="map-baseline-percentile-field" hidden><span>Baseline percentile</span><input id="map-baseline-percentile" type="number" value="50" min="0" max="100" step="any"></label>
-        <label class="field"><span>Transform</span><select id="map-transform"><option value="raw">Raw</option><option value="absolute">Absolute</option><option value="negate">Negate</option><option value="custom">Custom expression</option></select></label>
-        <label class="field" id="custom-expression-field" hidden><span>Expression in x</span><input id="custom-expression" value="x"></label>
-        <label class="field"><span>Normalization</span><select id="map-normalization"><option value="none">None</option><option value="max_magnitude">Max magnitude</option><option value="min_max">Min–max</option><option value="reference">Reference</option></select></label>
-        <label class="field" id="normalization-reference-field" hidden><span id="normalization-reference-label">Reference</span><input id="normalization-reference" type="number" value="1" step="any"></label>
-        <div class="two-column"><label class="field"><span>Scale</span><select id="value-scale"><option value="linear">Linear</option><option value="log10">log10</option></select></label><label class="check-field field-check"><input id="flip-y" type="checkbox"><span>Flip Y</span></label></div>
-        <div class="section-rule"></div>
-        <div class="two-column"><label class="field"><span>Palette</span><select id="map-palette"><option value="Viridis">Viridis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option><option value="Grayscale">Grayscale</option></select></label><label class="check-field field-check"><input id="invert-palette" type="checkbox"><span>Flip color</span></label></div>
-        <label class="field"><span>Color range</span><select id="color-range-mode"><option value="auto">Auto</option><option value="percentile">Percentile</option><option value="manual">Manual</option></select></label>
-        <div id="color-percentiles" class="two-column" hidden><label class="field"><span>Low / %</span><input id="color-low" type="number" value="1" step="any"></label><label class="field"><span>High / %</span><input id="color-high" type="number" value="99" step="any"></label></div>
-        <div id="color-manual" class="two-column" hidden><label class="field"><span id="color-min-label">Min</span><input id="color-min" type="number" value="0" step="any"></label><label class="field"><span id="color-max-label">Max</span><input id="color-max" type="number" value="1" step="any"></label></div>
-        <div class="section-rule"></div>
-        <label class="field"><span>Distribution range</span><select id="hist-range-mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></label>
-        <div id="hist-range-manual" class="two-column" hidden><label class="field"><span id="hist-min-label">Min</span><input id="hist-min" type="number" value="0" step="any"></label><label class="field"><span id="hist-max-label">Max</span><input id="hist-max" type="number" value="1" step="any"></label></div>
-        <label class="field"><span>Bins</span><select id="hist-bin-mode"><option value="auto">Auto</option><option value="count">Count</option><option value="width">Width</option></select></label>
-        <label class="field" id="hist-count-field" hidden><span>Bin count</span><input id="hist-count" type="number" value="50" min="1" step="1"></label>
-        <label class="field" id="hist-width-field" hidden><span id="hist-width-label">Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
+      <aside class="control-panel compact-panel analysis-controls">
+        <div class="analysis-section">
+          <h2>Processing</h2>
+          <label class="field"><span>Baseline</span><select id="map-baseline"><option value="none">None</option><option value="manual">Manual</option><option value="mean">Mean</option><option value="median">Median</option><option value="minimum">Minimum</option><option value="maximum">Maximum</option><option value="percentile">Percentile</option></select></label>
+          <label class="field" id="map-baseline-value-field" hidden><span id="map-baseline-value-label">Baseline value</span><input id="map-baseline-value" type="number" value="0" step="any"></label>
+          <label class="field" id="map-baseline-percentile-field" hidden><span>Baseline percentile</span><input id="map-baseline-percentile" type="number" value="50" min="0" max="100" step="any"></label>
+          <div class="two-column">
+            <label class="field"><span>Transform</span><select id="map-transform"><option value="raw">Raw</option><option value="absolute">Absolute</option><option value="negate">Negate</option><option value="custom">Custom expression</option></select></label>
+            <label class="field"><span>Normalization</span><select id="map-normalization"><option value="none">None</option><option value="max_magnitude">Max magnitude</option><option value="min_max">Min–max</option><option value="reference">Reference</option></select></label>
+          </div>
+          <label class="field" id="custom-expression-field" hidden><span>Expression in x</span><input id="custom-expression" value="x"></label>
+          <label class="field" id="normalization-reference-field" hidden><span id="normalization-reference-label">Reference</span><input id="normalization-reference" type="number" value="1" step="any"></label>
+          <div class="two-column"><label class="field"><span>Scale</span><select id="value-scale"><option value="linear">Linear</option><option value="log10">log10</option></select></label><label class="check-field field-check"><input id="flip-y" type="checkbox"><span>Flip Y</span></label></div>
+        </div>
+
+        <div class="analysis-section">
+          <h2>Figure</h2>
+          <div class="two-column"><label class="field"><span>Palette</span><select id="map-palette"><option value="Viridis">Viridis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option><option value="Grayscale">Grayscale</option></select></label><label class="check-field field-check"><input id="invert-palette" type="checkbox"><span>Flip color</span></label></div>
+          <label class="field"><span>Color range</span><select id="color-range-mode"><option value="auto">Auto</option><option value="percentile">Percentile</option><option value="manual">Manual</option></select></label>
+          <div id="color-percentiles" class="two-column" hidden><label class="field"><span>Low / %</span><input id="color-low" type="number" value="1" step="any"></label><label class="field"><span>High / %</span><input id="color-high" type="number" value="99" step="any"></label></div>
+          <div id="color-manual" class="two-column" hidden><label class="field"><span id="color-min-label">Min</span><input id="color-min" type="number" value="0" step="any"></label><label class="field"><span id="color-max-label">Max</span><input id="color-max" type="number" value="1" step="any"></label></div>
+        </div>
+
+        <div class="analysis-section distribution-section">
+          <h2>Distribution</h2>
+          <div class="two-column">
+            <label class="field"><span>Range</span><select id="hist-range-mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></label>
+            <label class="field"><span>Bins</span><select id="hist-bin-mode"><option value="auto">Auto</option><option value="count">Count</option><option value="width">Width</option></select></label>
+          </div>
+          <div id="hist-range-manual" class="two-column" hidden><label class="field"><span id="hist-min-label">Min</span><input id="hist-min" type="number" value="0" step="any"></label><label class="field"><span id="hist-max-label">Max</span><input id="hist-max" type="number" value="1" step="any"></label></div>
+          <label class="field" id="hist-count-field" hidden><span>Bin count</span><input id="hist-count" type="number" value="50" min="1" step="1"></label>
+          <label class="field" id="hist-width-field" hidden><span id="hist-width-label">Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
+        </div>
+
         <div id="analysis-summary" class="summary empty">No processed map.</div>
-        <details><summary>Export</summary>
+        <details class="compact-details"><summary>Export</summary>
           <button id="export-processed-button" class="secondary-button" disabled>Processed map + JSON</button>
           <button id="export-summary-button" class="secondary-button" disabled>Parameter summary</button>
           <button id="export-report-button" class="secondary-button" disabled>HTML report</button>

@@ -414,3 +414,34 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
   font:600 11px/1 system-ui,sans-serif;
   cursor:pointer;
 }
+
+.hidden-file-input { position:absolute !important; width:1px !important; height:1px !important; opacity:0 !important; pointer-events:none !important; }
+.file-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.file-actions .file-picker { border:0; min-height:34px; padding:0 8px; }
+.file-actions .secondary-picker { background:#eef3ff; color:var(--accent); border:1px solid #cfdafa; }
+.import-drop-zone {
+  margin-top:7px;
+  min-height:42px;
+  display:grid;
+  place-items:center;
+  padding:7px 10px;
+  border:1px dashed #bcc8dd;
+  border-radius:8px;
+  background:#f8faff;
+  color:#718099;
+  font-size:11px;
+  text-align:center;
+  cursor:pointer;
+}
+.import-drop-zone.dragging { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+.analysis-controls .analysis-section { margin:0; padding:0 0 7px; }
+.analysis-controls .analysis-section + .analysis-section { padding-top:7px; border-top:1px solid #edf1f6; }
+.analysis-controls .analysis-section h2 { margin-bottom:3px; font-size:13px; }
+.analysis-controls .field { margin:5px 0; gap:3px; }
+.analysis-controls select { min-height:29px; }
+.analysis-controls input[type="number"] { min-height:29px; padding:4px 7px; }
+.analysis-controls .check-field { margin:5px 0; }
+.analysis-controls .summary { margin:6px 0; padding:6px 8px; }
+.analysis-controls .compact-details { margin-top:4px; font-size:11px; }
+.analysis-controls .compact-details > summary { cursor:pointer; color:#56657d; font-weight:700; }
+.analysis-controls .compact-details .secondary-button { min-height:29px; margin-top:5px; }

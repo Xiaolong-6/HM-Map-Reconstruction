@@ -859,13 +859,13 @@
     model.columns.forEach(column => {
       const timeOption = document.createElement("option");
       timeOption.value = String(column.index);
-      timeOption.textContent = column.name + (column.numeric ? "" : " · non-numeric");
+      timeOption.textContent = column.name + (column.numeric ? (column.completeness < 1 ? " · " + Math.round(column.completeness * 100) + "% finite" : "") : " · non-numeric");
       timeOption.disabled = !column.numeric;
       timeSelect.appendChild(timeOption);
 
       const signalOption = document.createElement("option");
       signalOption.value = String(column.index);
-      signalOption.textContent = column.name + (column.numeric ? "" : " · non-numeric");
+      signalOption.textContent = column.name + (column.numeric ? (column.completeness < 1 ? " · " + Math.round(column.completeness * 100) + "% finite" : "") : " · non-numeric");
       signalOption.disabled = !column.numeric;
       signalSelect.appendChild(signalOption);
     });
@@ -958,7 +958,13 @@
       const canonicalBytes = new TextEncoder().encode(canonical.canonicalText);
       const source = api.csv.parseHappyMeasureCsv(canonical.canonicalText, state.pendingImport.filename);
       commitLoadedSource(source, canonicalBytes, state.pendingImport.filename);
-      setStatus("import-status", "Imported " + source.sampleCount.toLocaleString() + " samples into the canonical scientific source.", "ok");
+      const dropped = canonical.metadata.dropped_row_count || 0;
+      setStatus(
+        "import-status",
+        "Imported " + source.sampleCount.toLocaleString() + " samples" +
+          (dropped ? " · dropped " + dropped.toLocaleString() + " incomplete rows" : "") + ".",
+        dropped ? "warn" : "ok",
+      );
     } catch (error) {
       setStatus("import-status", error.message || String(error), "error");
     }
@@ -1241,11 +1247,40 @@
       button.addEventListener("click", () => activateStage(Number(button.dataset.stage)));
     });
 
+    byId("open-data-button").addEventListener("click", () => {
+      const input = byId("csv-file");
+      input.value = "";
+      input.click();
+    });
+    byId("open-project-button").addEventListener("click", () => {
+      const input = byId("project-file");
+      input.value = "";
+      input.click();
+    });
     byId("csv-file").addEventListener("change", event => {
       loadFile(event.target.files && event.target.files[0]);
     });
     byId("project-file").addEventListener("change", event => {
       loadProjectFile(event.target.files && event.target.files[0]);
+    });
+    const dropZone = byId("import-drop-zone");
+    ["dragenter", "dragover"].forEach(type => dropZone.addEventListener(type, event => {
+      event.preventDefault();
+      dropZone.classList.add("dragging");
+    }));
+    ["dragleave", "drop"].forEach(type => dropZone.addEventListener(type, event => {
+      event.preventDefault();
+      dropZone.classList.remove("dragging");
+    }));
+    dropZone.addEventListener("drop", event => {
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+    dropZone.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        byId("open-data-button").click();
+      }
     });
     byId("continue-preparation-button").addEventListener("click", () => activateStage(2));
     byId("continue-reconstruction-button").addEventListener("click", () => activateStage(3));
