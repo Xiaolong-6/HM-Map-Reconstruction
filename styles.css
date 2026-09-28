@@ -558,3 +558,35 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+
+.map-render-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:0;
+  margin-left:2px;
+  border:1px solid var(--border);
+  border-radius:7px;
+  overflow:hidden;
+  background:#fff;
+}
+.map-render-toggle > span {
+  padding:0 7px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+}
+.map-render-toggle button {
+  min-height:26px;
+  border:0;
+  border-left:1px solid var(--border);
+  border-radius:0;
+  background:#fff;
+  color:#56657d;
+  padding:0 8px;
+}
+.map-render-toggle button.active {
+  background:var(--accent-soft);
+  color:var(--accent);
+  font-weight:750;
+}
+.map-nav-hint { color:var(--muted); font-size:11px; }
