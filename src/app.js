@@ -266,6 +266,7 @@
     renderReconstruction();
     renderAnalysis();
     updateStageAvailability();
+    document.documentElement.dataset.appReady = "true";
   }
 
   function recomputePreparation() {

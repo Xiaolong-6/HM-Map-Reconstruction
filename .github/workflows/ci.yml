@@ -58,3 +58,10 @@ jobs:
         env:
           REQUIRE_PYTHON_ORACLE: "1"
         run: npm test
+
+      - name: Verify direct file URL boot
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          timeout 30s "$CHROME"             --headless=new             --no-sandbox             --disable-gpu             --allow-file-access-from-files             --dump-dom "file://$PWD/index.html" > /tmp/hm-map-dom.html
+          grep -q 'data-app-ready="true"' /tmp/hm-map-dom.html
