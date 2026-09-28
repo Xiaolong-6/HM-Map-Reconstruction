@@ -266,7 +266,6 @@
     renderReconstruction();
     renderAnalysis();
     updateStageAvailability();
-    document.documentElement.dataset.appReady = "true";
   }
 
   function recomputePreparation() {
@@ -1065,6 +1064,7 @@
     renderReconstruction();
     renderAnalysis();
     updateStageAvailability();
+    document.documentElement.dataset.appReady = "true";
   }
 
   if (document.readyState === "loading") {
