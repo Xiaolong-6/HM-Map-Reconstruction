@@ -438,16 +438,25 @@ if (
 ) {
   throw new Error("Reconstruction three-view fit failed: " + JSON.stringify(reconstructionViewportFit));
 }
-const mapAspect = await evaluate(`(() => {
+const mapLayout = await evaluate(`(() => {
   const map=document.getElementById("map-canvas").getBoundingClientRect();
   const count=document.getElementById("count-canvas").getBoundingClientRect();
   return {
-    mapDelta:Math.abs(map.width-map.height),
-    countDelta:Math.abs(count.width-count.height)
+    mapWidth:map.width,
+    mapHeight:map.height,
+    countWidth:count.width,
+    countHeight:count.height,
+    heightDelta:Math.abs(map.height-count.height)
   };
 })()`);
-if (mapAspect.mapDelta > 2 || mapAspect.countDelta > 2) {
-  throw new Error("Reconstruction maps must remain square: " + JSON.stringify(mapAspect));
+if (
+  mapLayout.mapWidth < 250 ||
+  mapLayout.countWidth < 250 ||
+  mapLayout.mapHeight < 220 ||
+  mapLayout.countHeight < 220 ||
+  mapLayout.heightDelta > 2
+) {
+  throw new Error("Reconstruction map layout is not compact/aligned: " + JSON.stringify(mapLayout));
 }
 await screenshot("03-reconstruction");
 
