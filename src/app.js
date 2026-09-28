@@ -14,6 +14,7 @@
     histogram: null,
     colorLimits: null,
     flipY: false,
+    pendingImport: null,
     activeStage: 1,
   };
 
@@ -98,8 +99,9 @@
   }
 
   function activateStage(stage) {
-    if (stage === 2 && !state.prepared) return;
-    if (stage === 3 && !state.reconstruction) return;
+    if (stage === 2 && !state.source) return;
+    if (stage === 3 && !state.prepared) return;
+    if (stage === 4 && !state.reconstruction) return;
     state.activeStage = stage;
     document.querySelectorAll(".stage").forEach(node => {
       node.classList.toggle("active", node.id === "stage-" + stage);
@@ -107,24 +109,32 @@
     document.querySelectorAll(".stage-button").forEach(node => {
       node.classList.toggle("active", Number(node.dataset.stage) === stage);
     });
-    if (stage === 1) renderTrace();
-    if (stage === 2) renderReconstruction();
-    if (stage === 3) renderAnalysis();
+    if (stage === 2) renderTrace();
+    if (stage === 3) {
+      renderRegistrationTrace();
+      renderReconstruction();
+    }
+    if (stage === 4) renderAnalysis();
   }
 
   function updateStageAvailability() {
     const stage2 = document.querySelector('.stage-button[data-stage="2"]');
     const stage3 = document.querySelector('.stage-button[data-stage="3"]');
-    stage2.disabled = !state.prepared;
-    stage3.disabled = !state.reconstruction;
+    const stage4 = document.querySelector('.stage-button[data-stage="4"]');
+    stage2.disabled = !state.source;
+    stage3.disabled = !state.prepared;
+    stage4.disabled = !state.reconstruction;
+    byId("continue-preparation-button").disabled = !state.source;
+    byId("continue-reconstruction-button").disabled = !state.prepared;
     byId("export-prepared-button").disabled = !state.prepared;
     byId("export-raw-button").disabled = !state.reconstruction;
     byId("export-processed-button").disabled =
       !state.processed || !Array.from(state.processed.values).some(Number.isFinite);
     byId("export-summary-button").disabled = !state.source;
     byId("export-report-button").disabled = !state.reconstruction;
-    if (!state.prepared && state.activeStage > 1) activateStage(1);
-    else if (!state.reconstruction && state.activeStage > 2) activateStage(2);
+    if (!state.source && state.activeStage > 1) activateStage(1);
+    else if (!state.prepared && state.activeStage > 2) activateStage(2);
+    else if (!state.reconstruction && state.activeStage > 3) activateStage(3);
   }
 
   function renderSourceSummary() {
@@ -140,7 +150,7 @@
     node.innerHTML =
       "<dl>" +
       "<dt>File</dt><dd>" + escapeHtml(state.originalFilename || state.source.sourceName) + "</dd>" +
-      "<dt>Schema</dt><dd>" + escapeHtml(state.source.schema) + "</dd>" +
+      "<dt>Format</dt><dd>" + escapeHtml(state.source.metadata && state.source.metadata.import_format ? "Generic table" : state.source.schema) + "</dd>" +
       "<dt>Samples</dt><dd>" + state.source.sampleCount.toLocaleString() + "</dd>" +
       "<dt>Duration</dt><dd>" + duration.toPrecision(6) + " s</dd>" +
       "<dt>Signals</dt><dd>" + state.source.signalNames.length + "</dd>" +
@@ -252,6 +262,25 @@
     api.plotting.drawTraces(canvas, state.source.timeS, series, { yLabel: display.axisLabel });
   }
 
+  function renderRegistrationTrace() {
+    const canvas = byId("registration-trace-canvas");
+    const empty = byId("registration-trace-empty");
+    if (!canvas) return;
+    if (!state.prepared || !state.signal) {
+      empty.classList.remove("hidden");
+      api.plotting.clearCanvas(canvas);
+      return;
+    }
+    empty.classList.add("hidden");
+    const display = rawDisplayUnit();
+    api.plotting.drawTraces(
+      canvas,
+      state.prepared.time_s,
+      [{ values: state.prepared.values, color: "#168a62", scale: display.scale }],
+      { yLabel: display.axisLabel },
+    );
+  }
+
   function invalidateReconstruction() {
     state.reconstruction = null;
     state.reconstructionParams = null;
@@ -286,6 +315,7 @@
       );
       renderPreparedSummary();
       renderTrace();
+      renderRegistrationTrace();
       setStatus("status", "Preparation preview updated.", "ok");
     } catch (error) {
       state.prepared = null;
@@ -297,9 +327,6 @@
   }
 
   function syncReconstructionControls() {
-    const phase = byId("reconstruction-method").value === "dual_offset_phase_window";
-    byId("legacy-registration").hidden = phase;
-    byId("phase-registration").hidden = !phase;
     const fixed = byId("window-mode").value === "fixed_duration";
     byId("window-fraction").disabled = fixed;
     byId("window-duration").disabled = !fixed;
@@ -328,62 +355,30 @@
     data.signals[state.signal] = state.prepared.values;
 
     try {
-      const base = baseReconstructionParams();
-      if (byId("reconstruction-method").value === "dual_offset") {
-        state.reconstructionParams = api.reconstruction.normalizeDualOffsetParams({
-          ...base,
-          point_offset: Number(byId("point-offset").value),
-          use_median: byId("legacy-aggregation").value === "median",
-        });
-        state.reconstruction = api.reconstruction.reconstructDualOffset(
-          data,
-          state.signal,
-          state.reconstructionParams,
-        );
-      } else {
-        state.reconstructionParams = api.reconstruction.normalizePhaseWindowParams({
-          ...base,
-          y_phase_fraction: Number(byId("y-phase").value),
-          x_period_offset: Number(byId("x-period-offset").value),
-          x_phase_fraction: Number(byId("x-phase").value),
-          window_mode: byId("window-mode").value,
-          window_fraction: Number(byId("window-fraction").value),
-          window_duration_s: Number(byId("window-duration").value),
-          aggregation: byId("phase-aggregation").value,
-        });
-        state.reconstruction = api.reconstruction.reconstructPhaseWindow(
-          data,
-          state.signal,
-          state.reconstructionParams,
-        );
-      }
-
-      const finite = Array.from(state.reconstruction.values).filter(Number.isFinite).length;
-      byId("reconstruction-summary").className = "summary";
-      byId("reconstruction-summary").innerHTML =
-        "<dl>" +
-        "<dt>Method</dt><dd>" + escapeHtml(state.reconstruction.method) + "</dd>" +
-        "<dt>Shape</dt><dd>" + state.reconstruction.rows + " × " + state.reconstruction.cols + "</dd>" +
-        "<dt>Finite pixels</dt><dd>" + finite + " / " + state.reconstruction.values.length + "</dd>" +
-        "<dt>Warnings</dt><dd>" + state.reconstruction.warnings.length + "</dd>" +
-        "</dl>";
+      state.reconstructionParams = api.reconstruction.normalizePhaseWindowParams({
+        ...baseReconstructionParams(),
+        y_phase_fraction: Number(byId("y-phase").value),
+        x_period_offset: Number(byId("x-period-offset").value),
+        x_phase_fraction: Number(byId("x-phase").value),
+        window_mode: byId("window-mode").value,
+        window_fraction: Number(byId("window-fraction").value),
+        window_duration_s: Number(byId("window-duration").value),
+        aggregation: byId("phase-aggregation").value,
+      });
+      state.reconstruction = api.reconstruction.reconstructPhaseWindow(
+        data,
+        state.signal,
+        state.reconstructionParams,
+      );
       byId("save-project-button").disabled = !state.rawBytes;
-      setStatus("reconstruction-status", "Reconstruction complete.", "ok");
-      recomputeAnalysis();
+      setStatus("reconstruction-status", "Reconstruction updated.", "ok");
     } catch (error) {
       state.reconstruction = null;
       state.reconstructionParams = null;
-      state.processed = null;
-      state.histogram = null;
-      state.colorLimits = null;
-      byId("save-project-button").disabled = true;
-      byId("reconstruction-summary").className = "summary empty";
-      byId("reconstruction-summary").textContent = "Reconstruction failed.";
       setStatus("reconstruction-status", error.message || String(error), "error");
     }
-
     renderReconstruction();
-    renderAnalysis();
+    recomputeAnalysis();
     updateStageAvailability();
   }
 
@@ -581,63 +576,14 @@
 
   function restoreProjectControls(project) {
     const saved = project.state;
-    const params = saved.reconstructionParams;
-    const prep = saved.preparation;
-    const proc = saved.processing;
-
-    state.rawBytes = project.rawBytes;
-    state.originalFilename = saved.source.original_filename;
-    state.source = project.csv;
-    state.flipY = saved.flip_y;
-    populateSignals(saved.source.signal);
-
-    const rawUnit = rawDisplayUnit();
-    setControl("dark-mode", prep.dark_correction_mode);
-    setControl("constant-baseline", prep.constant_baseline * rawUnit.scale);
-    setControl(
-      "manual-regions",
-      prep.manual_dark_regions.map(region => region.start_s + "," + region.end_s).join("\n"),
-    );
-    setControl("manual-fit", prep.manual_region_fit);
-    setControl("rolling-quantile", prep.rolling_quantile * 100);
-    setControl("rolling-window", prep.rolling_window_s);
-    setControl("rolling-trend", prep.rolling_trend);
-    setControl("response-direction", prep.response_direction);
-    setControl("gate-enabled", prep.value_gate_enabled);
-    if (prep.value_gate_enabled) {
-      setControl("gate-min", prep.value_gate_min * rawUnit.scale);
-      setControl("gate-max", prep.value_gate_max * rawUnit.scale);
-    }
-    setControl("apply-baseline", prep.apply_baseline);
-    setControl("invert-signal", prep.invert_signal);
-
-    setControl("map-rows", params.rows);
-    setControl("map-cols", params.cols);
-    setControl("scan-pattern", params.scan_pattern);
-    setControl("first-row-direction", params.first_row_ltr ? "ltr" : "rtl");
-    setControl("reconstruction-method", saved.method);
-    setControl("row-a", params.row_a_s);
-    setControl("row-b", params.row_b_s);
-    setControl("rows-apart", params.rows_apart);
-    setControl("row-offset", params.row_offset);
-    setControl("point-a", params.point_a_s);
-    setControl("point-b", params.point_b_s);
-    setControl("points-apart", params.points_apart);
-
-    if (saved.method === "dual_offset") {
-      setControl("point-offset", params.point_offset);
-      setControl("legacy-aggregation", params.use_median ? "median" : "mean");
-    } else {
-      setControl("y-phase", params.y_phase_fraction);
-      setControl("x-period-offset", params.x_period_offset);
-      setControl("x-phase", params.x_phase_fraction);
-      setControl("window-mode", params.window_mode);
-      setControl("window-fraction", params.window_fraction);
-      if (params.window_duration_s != null) {
-        setControl("window-duration", params.window_duration_s);
-      }
-      setControl("phase-aggregation", params.aggregation);
-    }
+    let params = saved.reconstructionParams;
+    setControl("y-phase", params.y_phase_fraction);
+    setControl("x-period-offset", params.x_period_offset);
+    setControl("x-phase", params.x_phase_fraction);
+    setControl("window-mode", params.window_mode);
+    setControl("window-fraction", params.window_fraction);
+    if (params.window_duration_s != null) setControl("window-duration", params.window_duration_s);
+    setControl("phase-aggregation", params.aggregation);
 
     setControl("map-baseline", proc.baseline_mode);
     setControl("map-baseline-percentile", proc.baseline_percentile);
@@ -675,49 +621,153 @@
       );
       updateStageAvailability();
     }
-    activateStage(2);
+    activateStage(3);
+  }
+
+  function renderImportPreview(model) {
+    const node = byId("import-preview");
+    if (!model) {
+      node.className = "data-preview empty";
+      node.textContent = "No data loaded.";
+      return;
+    }
+    const names = model.names || [];
+    const rows = model.preview || [];
+    node.className = "data-preview";
+    let html = "<table><thead><tr>" +
+      names.map(name => "<th>" + escapeHtml(name) + "</th>").join("") +
+      "</tr></thead><tbody>";
+    html += rows.map(row => "<tr>" +
+      row.map(cell => "<td>" + escapeHtml(cell) + "</td>").join("") +
+      "</tr>").join("");
+    html += "</tbody></table>";
+    node.innerHTML = html;
+  }
+
+  function populateImportMapping(model) {
+    const timeSelect = byId("import-time-column");
+    const signalSelect = byId("import-signal-columns");
+    timeSelect.replaceChildren();
+    signalSelect.replaceChildren();
+    model.columns.forEach(column => {
+      const timeOption = document.createElement("option");
+      timeOption.value = String(column.index);
+      timeOption.textContent = column.name + (column.numeric ? "" : " · non-numeric");
+      timeOption.disabled = !column.numeric;
+      timeSelect.appendChild(timeOption);
+
+      const signalOption = document.createElement("option");
+      signalOption.value = String(column.index);
+      signalOption.textContent = column.name + (column.numeric ? "" : " · non-numeric");
+      signalOption.disabled = !column.numeric;
+      signalSelect.appendChild(signalOption);
+    });
+    const likelyTime = model.columns.find(column => column.numeric && /(^|_)(time|elapsed)(_|$)/i.test(column.name))
+      || model.columns.find(column => column.numeric);
+    if (likelyTime) timeSelect.value = String(likelyTime.index);
+    const likelySignal = model.columns.find(column =>
+      column.numeric && (!likelyTime || column.index !== likelyTime.index)
+    );
+    if (likelySignal) {
+      Array.from(signalSelect.options).forEach(option => {
+        option.selected = Number(option.value) === likelySignal.index;
+      });
+    }
+    byId("import-data-button").disabled = !likelySignal;
+  }
+
+  function commitLoadedSource(source, rawBytes, filename, preferredSignal) {
+    state.source = source;
+    state.rawBytes = rawBytes;
+    state.originalFilename = filename;
+    state.pendingImport = null;
+    populateSignals(preferredSignal);
+    renderSourceSummary();
+    byId("metadata-view").textContent = JSON.stringify(state.source.metadata, null, 2);
+    recomputePreparation();
+    updateStageAvailability();
   }
 
   async function loadFile(file) {
     if (!file) return;
-    setStatus("status", "Reading " + file.name + "…");
+    setStatus("import-status", "Reading " + file.name + "…");
     try {
-      state.rawBytes = new Uint8Array(await file.arrayBuffer());
-      state.originalFilename = file.name;
-      const text = new TextDecoder("utf-8").decode(state.rawBytes);
-      state.source = api.csv.parseHappyMeasureCsv(text, file.name);
-      populateSignals();
-      renderSourceSummary();
-      byId("metadata-view").textContent = JSON.stringify(state.source.metadata, null, 2);
-      recomputePreparation();
-      setStatus("status", "Loaded " + state.source.sampleCount.toLocaleString() + " samples.", "ok");
+      const originalBytes = new Uint8Array(await file.arrayBuffer());
+      const text = new TextDecoder("utf-8").decode(originalBytes);
+      if (api.importing.looksLikeHappyMeasure(text)) {
+        const source = api.csv.parseHappyMeasureCsv(text, file.name);
+        commitLoadedSource(source, originalBytes, file.name);
+        byId("generic-import-controls").hidden = true;
+        renderImportPreview({
+          names: ["Elapsed_s", ...source.signalNames],
+          preview: Array.from({ length: Math.min(12, source.sampleCount) }, (_, index) => [
+            source.timeS[index],
+            ...source.signalNames.map(name => source.signals[name][index]),
+          ]),
+        });
+        setStatus("import-status", "HappyMeasure single-v2 detected · " + source.sampleCount.toLocaleString() + " samples.", "ok");
+      } else {
+        const delimiter = byId("import-delimiter").value;
+        const model = api.importing.inspectDelimited(text, file.name, delimiter);
+        state.pendingImport = { model, originalBytes, filename: file.name };
+        state.source = null;
+        state.rawBytes = null;
+        state.originalFilename = file.name;
+        state.prepared = null;
+        invalidateReconstruction();
+        byId("generic-import-controls").hidden = false;
+        populateImportMapping(model);
+        renderImportPreview(model);
+        renderSourceSummary();
+        setStatus("import-status", "Generic table detected · map columns, then use selected data.", "ok");
+      }
     } catch (error) {
+      state.pendingImport = null;
       state.source = null;
       state.rawBytes = null;
       state.originalFilename = null;
-      state.signal = null;
       state.prepared = null;
       populateSignals();
       invalidateReconstruction();
       renderSourceSummary();
-      renderPreparedSummary();
+      renderImportPreview(null);
       byId("metadata-view").textContent = "{}";
-      renderTrace();
-      setStatus("status", error.message || String(error), "error");
+      setStatus("import-status", error.message || String(error), "error");
+    }
+    updateStageAvailability();
+  }
+
+  function commitGenericImport() {
+    if (!state.pendingImport) return;
+    try {
+      const signalColumns = Array.from(byId("import-signal-columns").selectedOptions).map(option => Number(option.value));
+      const canonical = api.importing.canonicalizeDelimited(state.pendingImport.model, {
+        timeMode: byId("import-time-mode").value,
+        timeColumn: Number(byId("import-time-column").value),
+        timeScale: Number(byId("import-time-scale").value),
+        sampleIntervalS: Number(byId("import-sample-interval").value),
+        signalColumns,
+      });
+      const canonicalBytes = new TextEncoder().encode(canonical.canonicalText);
+      const source = api.csv.parseHappyMeasureCsv(canonical.canonicalText, state.pendingImport.filename);
+      commitLoadedSource(source, canonicalBytes, state.pendingImport.filename);
+      setStatus("import-status", "Imported " + source.sampleCount.toLocaleString() + " samples into the canonical scientific source.", "ok");
+    } catch (error) {
+      setStatus("import-status", error.message || String(error), "error");
     }
   }
 
   async function loadProjectFile(file) {
     if (!file) return;
-    setStatus("status", "Opening " + file.name + "…");
+    setStatus("import-status", "Opening " + file.name + "…");
     try {
       const project = await api.project.loadProjectBytes(
         new Uint8Array(await file.arrayBuffer()),
       );
       restoreProjectControls(project);
-      setStatus("status", "Project opened and SHA-256 verified.", "ok");
+      setStatus("import-status", "Project opened and SHA-256 verified.", "ok");
     } catch (error) {
-      setStatus("status", error.message || String(error), "error");
+      setStatus("import-status", error.message || String(error), "error");
     }
   }
 
@@ -804,16 +854,8 @@
   }
 
   function summaryParams() {
-    const base = baseReconstructionParams();
-    if (byId("reconstruction-method").value === "dual_offset") {
-      return {
-        ...base,
-        point_offset: Number(byId("point-offset").value),
-        use_median: byId("legacy-aggregation").value === "median",
-      };
-    }
     return {
-      ...base,
+      ...baseReconstructionParams(),
       y_phase_fraction: Number(byId("y-phase").value),
       x_period_offset: Number(byId("x-period-offset").value),
       x_phase_fraction: Number(byId("x-phase").value),
@@ -830,7 +872,7 @@
       signal: state.signal,
       source: state.source,
       preparation: state.prepared ? state.prepared.config : preparationConfig(),
-      method: byId("reconstruction-method").value,
+      method: "dual_offset_phase_window",
       params: state.reconstructionParams || summaryParams(),
       processing: analysisConfig(),
       flipY: state.flipY,
@@ -929,7 +971,7 @@
         rawBytes: state.rawBytes,
         originalFilename: state.originalFilename,
         signal: state.signal,
-        method: byId("reconstruction-method").value,
+        method: "dual_offset_phase_window",
         reconstructionParams: state.reconstructionParams,
         preparation: preparationConfig(),
         processing: analysisConfig(),
@@ -957,6 +999,22 @@
     byId("project-file").addEventListener("change", event => {
       loadProjectFile(event.target.files && event.target.files[0]);
     });
+    byId("continue-preparation-button").addEventListener("click", () => activateStage(2));
+    byId("continue-reconstruction-button").addEventListener("click", () => activateStage(3));
+    byId("back-import-button").addEventListener("click", () => activateStage(1));
+    byId("import-data-button").addEventListener("click", commitGenericImport);
+    byId("import-time-mode").addEventListener("change", () => {
+      const indexMode = byId("import-time-mode").value === "index";
+      byId("import-time-column-fields").hidden = indexMode;
+      byId("import-sample-interval-field").hidden = !indexMode;
+    });
+    byId("import-delimiter").addEventListener("change", () => {
+      if (state.pendingImport) {
+        const file = byId("csv-file").files && byId("csv-file").files[0];
+        if (file) loadFile(file);
+      }
+    });
+
     byId("signal-select").addEventListener("change", event => {
       const previous = rawDisplayUnit();
       const constantSi = Number(byId("constant-baseline").value) / (previous.scale || 1);
@@ -992,12 +1050,7 @@
       );
     });
 
-    [
-      "reconstruction-method",
-      "window-mode",
-    ].forEach(id => {
-      byId(id).addEventListener("change", syncReconstructionControls);
-    });
+    byId("window-mode").addEventListener("change", syncReconstructionControls);
 
     [
       "map-baseline",
@@ -1050,9 +1103,11 @@
     byId("export-report-button").addEventListener("click", exportHtmlReport);
 
     root.addEventListener("resize", () => {
-      if (state.activeStage === 1) renderTrace();
-      else if (state.activeStage === 2) renderReconstruction();
-      else if (state.activeStage === 3) renderAnalysis();
+      if (state.activeStage === 2) renderTrace();
+      else if (state.activeStage === 3) {
+        renderRegistrationTrace();
+        renderReconstruction();
+      } else if (state.activeStage === 4) renderAnalysis();
     });
 
     syncPreparationControls();

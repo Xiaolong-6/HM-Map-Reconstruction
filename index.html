@@ -3,88 +3,128 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Map Reconstruction Web Prototype</title>
+  <title>HM Map Reconstruction</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
   <nav class="workflow" aria-label="Map Reconstruction workflow">
-    <button class="stage-button active" data-stage="1">1 <span>Signal Preparation</span></button>
-    <button class="stage-button" data-stage="2" disabled>2 <span>Reconstruction</span></button>
-    <button class="stage-button" data-stage="3" disabled>3 <span>Map Analysis</span></button>
+    <button class="stage-button active" data-stage="1">1 <span>Import Data</span></button>
+    <button class="stage-button" data-stage="2" disabled>2 <span>Signal Preparation</span></button>
+    <button class="stage-button" data-stage="3" disabled>3 <span>Reconstruction</span></button>
+    <button class="stage-button" data-stage="4" disabled>4 <span>Map Analysis</span></button>
   </nav>
 
   <main>
     <section class="stage active" id="stage-1">
-      <aside class="control-panel">
-        <h2>Source</h2>
+      <aside class="control-panel compact-panel">
+        <h2>Open</h2>
         <div class="file-actions">
-          <label class="file-picker"><span>Open CSV</span><input id="csv-file" type="file" accept=".csv,text/csv"></label>
+          <label class="file-picker"><span>Open data</span><input id="csv-file" type="file" accept=".csv,.tsv,.txt,.dat,text/csv,text/plain"></label>
           <label class="file-picker secondary-picker"><span>Open .hmmap</span><input id="project-file" type="file" accept=".hmmap,application/zip"></label>
         </div>
-        <p class="hint">Accepts the existing <code>single-v2</code> export only.</p>
-        <label class="field"><span>Signal</span><select id="signal-select" disabled></select></label>
+        <p class="hint compact-hint">HappyMeasure CSV is detected automatically. Generic numeric tables can be mapped below.</p>
+
+        <div id="generic-import-controls" hidden>
+          <div class="section-rule"></div>
+          <h2>Column mapping</h2>
+          <label class="field"><span>Delimiter</span><select id="import-delimiter"><option value="auto">Auto</option><option value=",">Comma</option><option value="	">Tab</option><option value=";">Semicolon</option><option value="whitespace">Whitespace</option></select></label>
+          <label class="field"><span>Time source</span><select id="import-time-mode"><option value="column">Column</option><option value="index">Sample index</option></select></label>
+          <div id="import-time-column-fields">
+            <label class="field"><span>Time column</span><select id="import-time-column"></select></label>
+            <label class="field"><span>Time multiplier → seconds</span><input id="import-time-scale" type="number" value="1" min="0" step="any"></label>
+          </div>
+          <label class="field" id="import-sample-interval-field" hidden><span>Sample interval / s</span><input id="import-sample-interval" type="number" value="1" min="0" step="any"></label>
+          <label class="field"><span>Signal columns</span><select id="import-signal-columns" multiple size="5"></select></label>
+          <button id="import-data-button" class="primary-button" disabled>Use selected data</button>
+        </div>
+
         <div id="source-summary" class="summary empty">No source loaded.</div>
-        <div class="section-rule"></div>
-        <h2>Signal preparation</h2>
-        <label class="field"><span>Baseline model</span><select id="dark-mode"><option value="none">None</option><option value="constant">Constant</option><option value="manual_regions">Manual dark regions</option><option value="rolling_quantile">Rolling quantile</option></select></label>
-        <div class="mode-block" data-mode="constant" hidden><label class="field"><span id="constant-baseline-label">Constant baseline</span><input id="constant-baseline" type="number" value="0" step="any"></label></div>
-        <div class="mode-block" data-mode="manual_regions" hidden>
-          <label class="field"><span>Dark regions · one <code>start,end</code> pair per line</span><textarea id="manual-regions" rows="4" placeholder="0,1&#10;10,11"></textarea></label>
-          <label class="field"><span>Region fit</span><select id="manual-fit"><option value="constant">Constant</option><option value="linear">Linear</option><option value="quadratic">Quadratic</option></select></label>
-        </div>
-        <div class="mode-block" data-mode="rolling_quantile" hidden>
-          <label class="field"><span>Rolling window / s</span><input id="rolling-window" type="number" value="10" min="0" step="any"></label>
-          <label class="field"><span>Dark-envelope quantile / %</span><input id="rolling-quantile" type="number" value="90" min="0" max="100" step="any"></label>
-          <label class="field"><span>Photocurrent direction</span><select id="response-direction"><option value="negative">Negative</option><option value="positive">Positive</option></select></label>
-          <label class="field"><span>Trend</span><select id="rolling-trend"><option value="piecewise_linear">Piecewise linear</option><option value="linear">Linear</option><option value="quadratic">Quadratic</option></select></label>
-        </div>
-        <label class="check-field"><input id="apply-baseline" type="checkbox"><span>Subtract baseline B(t)</span></label>
-        <label class="check-field"><input id="invert-signal" type="checkbox"><span>Invert prepared signal</span></label>
-        <label class="check-field"><input id="gate-enabled" type="checkbox"><span>Limit baseline candidates by raw value</span></label>
-        <div id="gate-fields" class="two-column" hidden><label class="field"><span id="gate-min-label">Gate min</span><input id="gate-min" type="number" value="0" step="any"></label><label class="field"><span id="gate-max-label">Gate max</span><input id="gate-max" type="number" value="1" step="any"></label></div>
-        <div id="prepared-summary" class="summary empty">Preparation preview unavailable.</div>\n        <button id="export-prepared-button" class="secondary-button" disabled>Export prepared CSV</button>
+        <button id="continue-preparation-button" class="primary-button" disabled>Continue to Signal Preparation</button>
         <details><summary>Source metadata</summary><pre id="metadata-view">{}</pre></details>
       </aside>
       <section class="workspace">
-        <div class="workspace-heading"><div><p class="eyebrow">Scientific preview</p><h2>Signal preparation</h2></div><div id="status" class="status">Choose a HappyMeasure CSV.</div></div>
-        <div class="legend"><span><i style="--legend:#275fe6"></i>Raw</span><span><i style="--legend:#d97706"></i>Baseline B(t)</span><span><i style="--legend:#168a62"></i>Prepared</span></div>
-        <div class="plot-card"><canvas id="trace-canvas" aria-label="Signal preparation trace"></canvas><div id="trace-empty" class="empty-overlay">Load a CSV to preview the signal.</div></div>
+        <div class="workspace-heading"><div><p class="eyebrow">Input</p><h2>Data preview</h2></div><div id="import-status" class="status">Open a data file or project.</div></div>
+        <div id="import-preview" class="data-preview empty">No data loaded.</div>
       </section>
     </section>
 
     <section class="stage" id="stage-2">
-      <aside class="control-panel">
+      <aside class="control-panel compact-panel">
+        <div class="panel-inline-heading"><h2>Signal</h2><button id="back-import-button" class="text-button">Change data</button></div>
+        <label class="field"><select id="signal-select" disabled></select></label>
+
+        <div class="section-rule"></div>
+        <h2>Baseline</h2>
+        <label class="field"><select id="dark-mode"><option value="none">None</option><option value="constant">Constant</option><option value="manual_regions">Manual dark regions</option><option value="rolling_quantile">Rolling quantile</option></select></label>
+        <div class="mode-block" data-mode="constant" hidden><label class="field"><span id="constant-baseline-label">Constant baseline</span><input id="constant-baseline" type="number" value="0" step="any"></label></div>
+        <div class="mode-block" data-mode="manual_regions" hidden>
+          <div class="inline-actions"><button id="add-dark-region" class="secondary-button compact-button" type="button">+ Draw dark region</button><button id="clear-dark-regions" class="text-button" type="button">Clear</button></div>
+          <label class="field"><span>Regions / s</span><textarea id="manual-regions" rows="3" placeholder="Drag on the plot or enter start,end"></textarea></label>
+          <label class="field"><span>Fit</span><select id="manual-fit"><option value="constant">Constant</option><option value="linear">Linear</option><option value="quadratic">Quadratic</option></select></label>
+        </div>
+        <div class="mode-block" data-mode="rolling_quantile" hidden>
+          <div class="two-column"><label class="field"><span>Window / s</span><input id="rolling-window" type="number" value="10" min="0" step="any"></label><label class="field"><span>Quantile / %</span><input id="rolling-quantile" type="number" value="90" min="0" max="100" step="any"></label></div>
+          <label class="field"><span>Response</span><select id="response-direction"><option value="negative">Negative photocurrent</option><option value="positive">Positive photocurrent</option></select></label>
+          <label class="field"><span>Trend</span><select id="rolling-trend"><option value="piecewise_linear">Piecewise linear</option><option value="linear">Linear</option><option value="quadratic">Quadratic</option></select></label>
+        </div>
+
+        <div class="check-grid">
+          <label class="check-field"><input id="apply-baseline" type="checkbox"><span>Subtract B(t)</span></label>
+          <label class="check-field"><input id="invert-signal" type="checkbox"><span>Invert</span></label>
+          <label class="check-field wide"><input id="gate-enabled" type="checkbox"><span>Gate baseline candidates</span></label>
+        </div>
+        <div id="gate-fields" class="two-column" hidden><label class="field"><span id="gate-min-label">Gate min</span><input id="gate-min" type="number" value="0" step="any"></label><label class="field"><span id="gate-max-label">Gate max</span><input id="gate-max" type="number" value="1" step="any"></label></div>
+        <div id="prepared-summary" class="summary empty">Preparation preview unavailable.</div>
+        <button id="export-prepared-button" class="secondary-button" disabled>Export prepared CSV</button>
+        <button id="continue-reconstruction-button" class="primary-button" disabled>Continue to Reconstruction</button>
+      </aside>
+      <section class="workspace">
+        <div class="workspace-heading"><div><p class="eyebrow">Interactive trace</p><h2>Signal Preparation</h2></div><div id="status" class="status">Import data first.</div></div>
+        <div class="plot-toolbar">
+          <button id="prep-autoscale" type="button">Autoscale</button>
+          <button id="prep-reset-x" type="button">Full X</button>
+          <span class="toolbar-hint">Wheel: zoom X · Shift+wheel: zoom Y · drag: pan · double-click: autoscale</span>
+        </div>
+        <div class="legend" id="prep-legend"><span><i style="--legend:#275fe6"></i>Raw</span><span><i style="--legend:#d97706"></i>Baseline B(t)</span><span><i style="--legend:#168a62"></i>Prepared</span></div>
+        <div class="plot-card trace-card"><canvas id="trace-canvas" aria-label="Signal preparation trace"></canvas><div id="trace-empty" class="empty-overlay">Import data to preview the signal.</div></div>
+      </section>
+    </section>
+
+    <section class="stage" id="stage-3">
+      <aside class="control-panel compact-panel">
         <h2>Geometry</h2>
         <div class="two-column"><label class="field"><span>Rows</span><input id="map-rows" type="number" value="10" min="1" step="1"></label><label class="field"><span>Columns</span><input id="map-cols" type="number" value="10" min="1" step="1"></label></div>
-        <label class="field"><span>Scan pattern</span><select id="scan-pattern"><option value="same_direction">Same direction</option><option value="serpentine">Serpentine</option></select></label>
-        <label class="field"><span>First row direction</span><select id="first-row-direction"><option value="ltr">Left → right</option><option value="rtl">Right → left</option></select></label>
+        <div class="two-column"><label class="field"><span>Pattern</span><select id="scan-pattern"><option value="same_direction">Same direction</option><option value="serpentine">Serpentine</option></select></label><label class="field"><span>First row</span><select id="first-row-direction"><option value="ltr">L → R</option><option value="rtl">R → L</option></select></label></div>
 
-        <div class="section-rule"></div><h2>Registration</h2>
-        <label class="field"><span>Method</span><select id="reconstruction-method"><option value="dual_offset">Dual Offset (Legacy)</option><option value="dual_offset_phase_window">Dual Offset — Phase Window</option></select></label>
-        <div class="two-column"><label class="field"><span>Row A / s</span><input id="row-a" type="number" value="0" step="any"></label><label class="field"><span>Row B / s</span><input id="row-b" type="number" value="10" step="any"></label></div>
+        <div class="section-rule"></div><h2>Registration · Phase Window</h2>
+        <input id="reconstruction-method" type="hidden" value="dual_offset_phase_window">
+        <div class="two-column"><label class="field"><span>YA / s</span><input id="row-a" type="number" value="0" step="any"></label><label class="field"><span>YB / s</span><input id="row-b" type="number" value="10" step="any"></label></div>
         <div class="two-column"><label class="field"><span>Rows apart</span><input id="rows-apart" type="number" value="1" min="1" step="1"></label><label class="field"><span>Row offset</span><input id="row-offset" type="number" value="0" min="0" step="1"></label></div>
-        <div class="two-column"><label class="field"><span>Point A / s</span><input id="point-a" type="number" value="0" step="any"></label><label class="field"><span>Point B / s</span><input id="point-b" type="number" value="1" step="any"></label></div>
+        <div class="two-column"><label class="field"><span>XA / s</span><input id="point-a" type="number" value="0" step="any"></label><label class="field"><span>XB / s</span><input id="point-b" type="number" value="1" step="any"></label></div>
         <label class="field"><span>Points apart</span><input id="points-apart" type="number" value="1" min="1" step="1"></label>
-
-        <div id="legacy-registration">
-          <label class="field"><span>Point offset</span><input id="point-offset" type="number" value="0" min="0" step="1"></label>
-          <label class="field"><span>Aggregation</span><select id="legacy-aggregation"><option value="median">Median</option><option value="mean">Mean</option></select></label>
-        </div>
-        <div id="phase-registration" hidden>
-          <div class="two-column"><label class="field"><span>Y phase fraction</span><input id="y-phase" type="number" value="0" step="any"></label><label class="field"><span>X period offset</span><input id="x-period-offset" type="number" value="0" min="0" step="1"></label></div>
-          <label class="field"><span>X phase fraction</span><input id="x-phase" type="number" value="0.5" step="any"></label>
-          <label class="field"><span>Window mode</span><select id="window-mode"><option value="fraction">Fraction of point period</option><option value="fixed_duration">Fixed duration</option></select></label>
-          <div class="two-column"><label class="field"><span>Window fraction</span><input id="window-fraction" type="number" value="0.65" min="0" max="1" step="any"></label><label class="field"><span>Duration / s</span><input id="window-duration" type="number" value="0.1" min="0" step="any"></label></div>
+        <div id="phase-registration">
+          <div class="two-column"><label class="field"><span>Y phase</span><input id="y-phase" type="number" value="0" step="any"></label><label class="field"><span>X offset</span><input id="x-period-offset" type="number" value="0" min="0" step="1"></label></div>
+          <label class="field"><span>X phase</span><input id="x-phase" type="number" value="0.5" step="any"></label>
+          <label class="field"><span>Window</span><select id="window-mode"><option value="fraction">Fraction of point period</option><option value="fixed_duration">Fixed duration</option></select></label>
+          <div class="two-column"><label class="field"><span>Fraction</span><input id="window-fraction" type="number" value="0.65" min="0" max="1" step="any"></label><label class="field"><span>Duration / s</span><input id="window-duration" type="number" value="0.1" min="0" step="any"></label></div>
           <label class="field"><span>Aggregation</span><select id="phase-aggregation"><option value="median">Median</option><option value="mean">Mean</option></select></label>
         </div>
-
-        <button id="reconstruct-button" class="primary-button">Reconstruct prepared signal</button>
-        <button id="save-project-button" class="secondary-button" disabled>Save .hmmap</button>\n        <button id="export-raw-button" class="secondary-button" disabled>Export raw map CSV</button>
+        <button id="reconstruct-button" class="primary-button">Reconstruct</button>
+        <div class="inline-actions">
+          <button id="save-project-button" class="secondary-button compact-button" disabled>Save .hmmap</button>
+          <button id="export-raw-button" class="secondary-button compact-button" disabled>Export CSV</button>
+        </div>
         <div id="reconstruction-summary" class="summary empty">No reconstruction yet.</div>
       </aside>
       <section class="workspace">
-        <div class="workspace-heading"><div><p class="eyebrow">Raw reconstruction</p><h2>Map + sample-count QC</h2></div><div id="reconstruction-status" class="status">Set registration parameters and reconstruct.</div></div>
+        <div class="workspace-heading"><div><p class="eyebrow">Interactive registration</p><h2>Timing + Reconstruction</h2></div><div id="reconstruction-status" class="status">Drag YA/YB/XA/XB or edit values.</div></div>
+        <div class="plot-toolbar">
+          <button id="registration-autoscale" type="button">Autoscale</button>
+          <button id="registration-reset-x" type="button">Full X</button>
+          <span class="toolbar-hint">Drag markers to register timing.</span>
+        </div>
+        <div class="legend marker-legend"><span><i style="--legend:#2563eb"></i>YA</span><span><i style="--legend:#7c3aed"></i>YB</span><span><i style="--legend:#059669"></i>XA</span><span><i style="--legend:#dc2626"></i>XB</span></div>
+        <div class="plot-card registration-trace-card"><canvas id="registration-trace-canvas" aria-label="Registration trace"></canvas><div id="registration-trace-empty" class="empty-overlay">Prepare a signal first.</div></div>
         <div class="map-grid">
           <div class="map-card"><h3 id="raw-map-title">Reconstructed values</h3><canvas id="map-canvas"></canvas><div id="map-empty" class="empty-overlay">No map yet.</div></div>
           <div class="map-card"><h3>Samples / pixel</h3><canvas id="count-canvas"></canvas><div id="count-empty" class="empty-overlay">No sample counts yet.</div></div>
@@ -92,8 +132,8 @@
       </section>
     </section>
 
-    <section class="stage" id="stage-3">
-      <aside class="control-panel">
+    <section class="stage" id="stage-4">
+      <aside class="control-panel compact-panel">
         <h2>Map processing</h2>
         <label class="field"><span>Baseline</span><select id="map-baseline"><option value="none">None</option><option value="manual">Manual</option><option value="mean">Mean</option><option value="median">Median</option><option value="minimum">Minimum</option><option value="maximum">Maximum</option><option value="percentile">Percentile</option></select></label>
         <label class="field" id="map-baseline-value-field" hidden><span id="map-baseline-value-label">Baseline value</span><input id="map-baseline-value" type="number" value="0" step="any"></label>
@@ -102,27 +142,27 @@
         <label class="field" id="custom-expression-field" hidden><span>Expression in x</span><input id="custom-expression" value="x"></label>
         <label class="field"><span>Normalization</span><select id="map-normalization"><option value="none">None</option><option value="max_magnitude">Max magnitude</option><option value="min_max">Min–max</option><option value="reference">Reference</option></select></label>
         <label class="field" id="normalization-reference-field" hidden><span id="normalization-reference-label">Reference</span><input id="normalization-reference" type="number" value="1" step="any"></label>
-        <label class="field"><span>Value scale</span><select id="value-scale"><option value="linear">Linear</option><option value="log10">log10</option></select></label>
-        <label class="check-field"><input id="flip-y" type="checkbox"><span>Flip Y display</span></label>
+        <div class="two-column"><label class="field"><span>Scale</span><select id="value-scale"><option value="linear">Linear</option><option value="log10">log10</option></select></label><label class="check-field field-check"><input id="flip-y" type="checkbox"><span>Flip Y</span></label></div>
         <div class="section-rule"></div>
-        <h2>Figure</h2>
-        <label class="field"><span>Palette</span><select id="map-palette"><option value="Viridis">Viridis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option><option value="Grayscale">Grayscale</option></select></label>
-        <label class="check-field"><input id="invert-palette" type="checkbox"><span>Flip color</span></label>
-        <h2>Color range</h2>
-        <label class="field"><span>Mode</span><select id="color-range-mode"><option value="auto">Auto</option><option value="percentile">Percentile</option><option value="manual">Manual</option></select></label>
+        <div class="two-column"><label class="field"><span>Palette</span><select id="map-palette"><option value="Viridis">Viridis</option><option value="Plasma">Plasma</option><option value="Inferno">Inferno</option><option value="Magma">Magma</option><option value="Cividis">Cividis</option><option value="Grayscale">Grayscale</option></select></label><label class="check-field field-check"><input id="invert-palette" type="checkbox"><span>Flip color</span></label></div>
+        <label class="field"><span>Color range</span><select id="color-range-mode"><option value="auto">Auto</option><option value="percentile">Percentile</option><option value="manual">Manual</option></select></label>
         <div id="color-percentiles" class="two-column" hidden><label class="field"><span>Low / %</span><input id="color-low" type="number" value="1" step="any"></label><label class="field"><span>High / %</span><input id="color-high" type="number" value="99" step="any"></label></div>
         <div id="color-manual" class="two-column" hidden><label class="field"><span id="color-min-label">Min</span><input id="color-min" type="number" value="0" step="any"></label><label class="field"><span id="color-max-label">Max</span><input id="color-max" type="number" value="1" step="any"></label></div>
         <div class="section-rule"></div>
-        <h2>Distribution</h2>
-        <label class="field"><span>Range</span><select id="hist-range-mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></label>
+        <label class="field"><span>Distribution range</span><select id="hist-range-mode"><option value="auto">Auto</option><option value="manual">Manual</option></select></label>
         <div id="hist-range-manual" class="two-column" hidden><label class="field"><span id="hist-min-label">Min</span><input id="hist-min" type="number" value="0" step="any"></label><label class="field"><span id="hist-max-label">Max</span><input id="hist-max" type="number" value="1" step="any"></label></div>
         <label class="field"><span>Bins</span><select id="hist-bin-mode"><option value="auto">Auto</option><option value="count">Count</option><option value="width">Width</option></select></label>
         <label class="field" id="hist-count-field" hidden><span>Bin count</span><input id="hist-count" type="number" value="50" min="1" step="1"></label>
         <label class="field" id="hist-width-field" hidden><span id="hist-width-label">Bin width</span><input id="hist-width" type="number" value="1" min="0" step="any"></label>
-        <div id="analysis-summary" class="summary empty">No processed map.</div>\n        <div class="section-rule"></div>\n        <h2>Export</h2>\n        <button id="export-processed-button" class="secondary-button" disabled>Export processed map + JSON</button>\n        <button id="export-summary-button" class="secondary-button" disabled>Export parameter summary</button>\n        <button id="export-report-button" class="secondary-button" disabled>Export HTML report</button>
+        <div id="analysis-summary" class="summary empty">No processed map.</div>
+        <details><summary>Export</summary>
+          <button id="export-processed-button" class="secondary-button" disabled>Processed map + JSON</button>
+          <button id="export-summary-button" class="secondary-button" disabled>Parameter summary</button>
+          <button id="export-report-button" class="secondary-button" disabled>HTML report</button>
+        </details>
       </aside>
       <section class="workspace">
-        <div class="workspace-heading"><div><p class="eyebrow">Processed scientific values</p><h2>Map Analysis</h2></div><div id="analysis-status" class="status">Processing follows the raw reconstruction.</div></div>
+        <div class="workspace-heading"><div><p class="eyebrow">Processed scientific values</p><h2>Map Analysis</h2></div><div id="analysis-status" class="status">Processing follows reconstruction.</div></div>
         <div class="map-grid analysis-grid">
           <div class="map-card"><h3 id="processed-map-title">Processed map</h3><canvas id="processed-map-canvas"></canvas><div id="processed-map-empty" class="empty-overlay">No processed map yet.</div></div>
           <div class="map-card"><h3 id="histogram-title">Value distribution</h3><canvas id="histogram-canvas"></canvas><div id="histogram-empty" class="empty-overlay">No distribution yet.</div></div>
@@ -131,8 +171,7 @@
     </section>
   </main>
 
-
-  <script src="src/shared.js"></script><script src="src/display_units.js"></script><script src="src/csv.js"></script><script src="src/preparation.js"></script>
+  <script src="src/shared.js"></script><script src="src/display_units.js"></script><script src="src/csv.js"></script><script src="src/importing.js"></script><script src="src/preparation.js"></script>
   <script src="src/reconstruction.js"></script><script src="src/processing.js"></script><script src="src/project.js"></script><script src="src/plotting.js"></script><script src="src/exporting.js"></script><script src="src/app.js"></script>
 </body>
 </html>
