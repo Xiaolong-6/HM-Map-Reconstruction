@@ -498,6 +498,28 @@
     updateStageAvailability();
   }
 
+  function mapGradient(stops) {
+    return "linear-gradient(to right," +
+      stops.map(color => "rgb(" + color.join(",") + ")").join(",") +
+      ")";
+  }
+
+  function renderMapScale(id, minimum, maximum, unit, scale, stops) {
+    const node = byId(id);
+    if (!node || !Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+      if (node) node.hidden = true;
+      return;
+    }
+    const factor = Number.isFinite(scale) ? scale : 1;
+    const suffix = unit ? " " + unit : "";
+    node.hidden = false;
+    node.querySelector(".scale-min").textContent =
+      api.plotting.formatTick(minimum * factor, (maximum - minimum) * factor) + suffix;
+    node.querySelector(".scale-max").textContent =
+      api.plotting.formatTick(maximum * factor, (maximum - minimum) * factor) + suffix;
+    node.querySelector(".scale-bar").style.background = mapGradient(stops);
+  }
+
   function renderReconstruction() {
     const mapCanvas = byId("map-canvas");
     const countCanvas = byId("count-canvas");
@@ -506,6 +528,8 @@
     if (!state.reconstruction) {
       mapEmpty.classList.remove("hidden");
       countEmpty.classList.remove("hidden");
+      byId("raw-map-scale").hidden = true;
+      byId("count-map-scale").hidden = true;
       api.plotting.clearCanvas(mapCanvas);
       api.plotting.clearCanvas(countCanvas);
       return;
@@ -528,6 +552,33 @@
       state.reconstruction.cols,
       { counts: true, flipY: state.flipY },
     );
+
+    const rawLimits = api.plotting.heatmapBounds(state.reconstruction.values);
+    const paletteStops = api.plotting.paletteStops(
+      byId("map-palette").value,
+      byId("invert-palette").checked,
+    );
+    if (rawLimits) {
+      renderMapScale(
+        "raw-map-scale",
+        rawLimits.minimum,
+        rawLimits.maximum,
+        display.unit,
+        display.scale,
+        paletteStops,
+      );
+    }
+    const finiteCounts = Array.from(state.reconstruction.sample_counts).filter(Number.isFinite);
+    if (finiteCounts.length) {
+      renderMapScale(
+        "count-map-scale",
+        Math.min(...finiteCounts),
+        Math.max(...finiteCounts),
+        "",
+        1,
+        [[239,246,255],[96,165,250],[23,62,140]],
+      );
+    }
   }
 
   function syncAnalysisControls() {
@@ -647,6 +698,7 @@
     if (!state.processed || !state.reconstruction) {
       mapEmpty.classList.remove("hidden");
       histogramEmpty.classList.remove("hidden");
+      byId("processed-map-scale").hidden = true;
       api.plotting.clearCanvas(mapCanvas);
       api.plotting.clearCanvas(histogramCanvas);
       return;
@@ -670,8 +722,22 @@
           inverted: byId("invert-palette").checked,
         },
       );
+      if (state.colorLimits) {
+        renderMapScale(
+          "processed-map-scale",
+          state.colorLimits.minimum,
+          state.colorLimits.maximum,
+          display.unit,
+          display.scale,
+          api.plotting.paletteStops(
+            byId("map-palette").value,
+            byId("invert-palette").checked,
+          ),
+        );
+      }
     } else {
       mapEmpty.classList.remove("hidden");
+      byId("processed-map-scale").hidden = true;
       api.plotting.clearCanvas(mapCanvas);
     }
 
