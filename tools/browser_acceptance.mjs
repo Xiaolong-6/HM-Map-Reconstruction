@@ -240,6 +240,10 @@ await waitFor(
   'document.getElementById("manual-regions").value.includes(",")',
   "dark-region drag"
 );
+const prepHiddenContract = await evaluate(`(() => ({
+  gateHidden: getComputedStyle(document.getElementById("gate-fields")).display === "none"
+}))()`);
+if (!prepHiddenContract.gateHidden) throw new Error("Inactive gate controls must stay hidden.");
 await layoutContract(2);
 await screenshot("02-signal-preparation");
 
@@ -301,6 +305,12 @@ await waitFor(
   'window.MapReconstructionWeb.appState.reconstruction?.values?.length===25',
   "reconstruction after marker drag"
 );
+const reconstructionUiContract = await evaluate(`(() => ({
+  durationHidden: getComputedStyle(document.getElementById("window-duration").closest(".field")).display === "none",
+  summaryText: document.getElementById("reconstruction-summary").textContent
+}))()`);
+if (!reconstructionUiContract.durationHidden) throw new Error("Fixed-duration control must be hidden in fraction mode.");
+if (reconstructionUiContract.summaryText.includes("No reconstruction")) throw new Error("Reconstruction summary is stale.");
 await layoutContract(3);
 await screenshot("03-reconstruction");
 
@@ -310,6 +320,17 @@ await waitFor(
   'document.querySelector(".stage-button.active")?.dataset.stage==="4" && window.MapReconstructionWeb.appState.processed?.values?.length===25',
   "Map Analysis stage"
 );
+const analysisHiddenContract = await evaluate(`(() => ({
+  baselineValueHidden: getComputedStyle(document.getElementById("map-baseline-value-field")).display === "none",
+  baselinePercentileHidden: getComputedStyle(document.getElementById("map-baseline-percentile-field")).display === "none",
+  customHidden: getComputedStyle(document.getElementById("custom-expression-field")).display === "none",
+  referenceHidden: getComputedStyle(document.getElementById("normalization-reference-field")).display === "none",
+  colorPercentileHidden: getComputedStyle(document.getElementById("color-percentiles")).display === "none",
+  colorManualHidden: getComputedStyle(document.getElementById("color-manual")).display === "none"
+}))()`);
+if (Object.values(analysisHiddenContract).some(value => !value)) {
+  throw new Error("Inactive Map Analysis controls must stay hidden: " + JSON.stringify(analysisHiddenContract));
+}
 await layoutContract(4);
 await screenshot("04-map-analysis");
 
