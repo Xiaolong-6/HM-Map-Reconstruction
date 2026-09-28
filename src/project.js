@@ -11,11 +11,19 @@
   function u32(view,o){return view.getUint32(o,true);}
 
   async function inflateRaw(bytes){
-    if(typeof DecompressionStream==="undefined") throw new Error("This browser cannot decompress Python-created .hmmap archives.");
-    let stream;
-    try{stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));}
-    catch(error){throw new Error("This browser does not support ZIP deflate decompression: "+error.message);}
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    if(typeof DecompressionStream!=="undefined"){
+      try{
+        const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }catch(error){
+        if(typeof require!=="function") throw new Error("This browser does not support ZIP deflate decompression: "+error.message);
+      }
+    }
+    if(typeof require==="function"){
+      const zlib=require("node:zlib");
+      return Uint8Array.from(zlib.inflateRawSync(Buffer.from(bytes)));
+    }
+    throw new Error("This browser cannot decompress Python-created .hmmap archives.");
   }
 
   function centralEntries(bytes){

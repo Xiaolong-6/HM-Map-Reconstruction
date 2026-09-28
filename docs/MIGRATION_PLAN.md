@@ -166,11 +166,11 @@ Acceptance:
 - Python-created projects open equivalently in Web;
 - Web-created projects open equivalently in Python.
 
-Status: implementation present; bidirectional fixture gate pending.
+Status: implementation present; bidirectional fixture gate is implemented in CI and pending green validation.
 
 ## Phase 6 — cross-runtime scientific parity
 
-Next phase.
+Status: CI implementation added; pending green validation.
 
 Deliverables:
 

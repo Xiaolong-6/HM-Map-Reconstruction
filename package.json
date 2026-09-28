@@ -4,6 +4,7 @@
   "version": "0.1.0-prototype.0",
   "description": "Offline-first static Web prototype for HappyMeasure Map Reconstruction",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:oracle": "REQUIRE_PYTHON_ORACLE=1 node --test tests/oracle.test.js"
   }
 }
