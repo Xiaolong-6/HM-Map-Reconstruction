@@ -109,18 +109,30 @@
   }
 
   function phaseCost(resampled,rowPeriod,pointPeriod,rows,cols,phase){
-    let cost=0,count=0;
+    let centerCost=0,transitionReward=0,count=0;
     const first=resampled.tMin+phase;
     const scanRows=Math.min(rows+2,Math.ceil(resampled.duration/rowPeriod)+2);
+    const offsets=[0.25,0.34,0.43];
     for(let row=-1;row<scanRows;row+=1){
       const rowBase=first+row*rowPeriod;
       for(let col=0;col<cols;col+=1){
-        const edge=edgeAtTime(resampled,rowBase+col*pointPeriod);
+        const center=rowBase+col*pointPeriod;
+        const edge=edgeAtTime(resampled,center);
         if(edge==null)continue;
-        cost+=edge;count+=1;
+        centerCost+=edge;
+        let nearby=0;
+        for(const fraction of offsets){
+          const before=edgeAtTime(resampled,center-fraction*pointPeriod);
+          const after=edgeAtTime(resampled,center+fraction*pointPeriod);
+          if(before!=null)nearby=Math.max(nearby,before);
+          if(after!=null)nearby=Math.max(nearby,after);
+        }
+        transitionReward+=nearby;
+        count+=1;
       }
     }
-    return count>=Math.max(8,Math.min(rows*cols,32))?cost/count:Infinity;
+    if(count<Math.max(8,Math.min(rows*cols,32)))return Infinity;
+    return centerCost/count-0.32*transitionReward/count;
   }
 
   function estimateCenterPhase(resampled,rowPeriod,pointPeriod,rows,cols){
