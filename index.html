@@ -104,8 +104,8 @@
         <h2>Geometry</h2>
         <div class="two-column"><label class="field"><span>Rows</span><input id="map-rows" type="number" value="10" min="1" step="1"></label><label class="field"><span>Columns</span><input id="map-cols" type="number" value="10" min="1" step="1"></label></div>
         <div class="two-column"><label class="field"><span>Pattern</span><select id="scan-pattern"><option value="same_direction">Same direction</option><option value="serpentine">Serpentine</option></select></label><label class="field"><span>First row</span><select id="first-row-direction"><option value="ltr">L → R</option><option value="rtl">R → L</option></select></label></div>
-        <button id="recommend-registration-button" class="secondary-button compact-button recommend-button" type="button" disabled>Recommend registration</button>
-        <div id="registration-recommendation" class="recommendation-note">Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase.</div>
+        <button id="recommend-registration-button" class="secondary-button compact-button recommend-button" type="button" title="Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase." aria-label="Recommend registration. Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase." disabled>Recommend registration</button>
+        <div id="registration-recommendation" class="recommendation-note" hidden></div>
 
         <div class="section-rule"></div><h2>Registration · Phase Window</h2>
         <input id="reconstruction-method" type="hidden" value="dual_offset_phase_window">
@@ -204,7 +204,7 @@
         <div class="map-view-toolbar"><button id="reset-analysis-map" type="button">Reset map view</button><span>Wheel zoom · drag pan · double-click reset</span></div>
         <div class="map-grid analysis-grid">
           <div class="map-card square-map"><h3 id="processed-map-title">Processed map</h3><canvas id="processed-map-canvas"></canvas><div id="processed-map-empty" class="empty-overlay">No processed map yet.</div></div>
-          <div class="map-card"><h3 id="histogram-title">Value distribution</h3><canvas id="histogram-canvas"></canvas><div id="histogram-empty" class="empty-overlay">No distribution yet.</div></div>
+          <div class="map-card square-map distribution-card"><h3 id="histogram-title">Value distribution</h3><canvas id="histogram-canvas"></canvas><div id="histogram-empty" class="empty-overlay">No distribution yet.</div></div>
         </div>
       </section>
     </section>

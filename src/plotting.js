@@ -436,28 +436,84 @@
     if(!histogram||!histogram.counts.length)return;
     const scale=options&&Number.isFinite(options.scale)?options.scale:1;
     const unit=options&&options.unit?String(options.unit):"";
-    const suffix=unit?" "+unit:"";
-    const width=canvas.clientWidth,height=canvas.clientHeight,margin={left:48,right:18,top:28,bottom:42};
+    const width=canvas.clientWidth,height=canvas.clientHeight;
+    const margin={left:58,right:26,top:34,bottom:50};
     const pw=Math.max(1,width-margin.left-margin.right),ph=Math.max(1,height-margin.top-margin.bottom);
     const maxCount=Math.max(1,...histogram.counts);
-    context.strokeStyle="#e3e8f2";context.fillStyle="#60a5fa";
+    const minimum=histogram.minimum*scale,maximum=histogram.maximum*scale;
+    const span=maximum-minimum;
+    const stops=paletteStops(
+      options&&options.palette?options.palette:"Viridis",
+      Boolean(options&&options.inverted),
+    );
+    function colorAt(fraction){
+      const t=Math.max(0,Math.min(1,fraction))*(stops.length-1);
+      const left=Math.floor(t),right=Math.min(stops.length-1,left+1),f=t-left;
+      return [0,1,2].map(channel=>Math.round(stops[left][channel]*(1-f)+stops[right][channel]*f));
+    }
+
+    context.font="11px ui-sans-serif, system-ui, sans-serif";
+    context.lineWidth=1;
+    context.textBaseline="middle";
+
+    for(let tick=0;tick<=4;tick+=1){
+      const fraction=tick/4;
+      const y=margin.top+(1-fraction)*ph;
+      const count=maxCount*fraction;
+      context.strokeStyle="#e3e8f2";
+      context.beginPath();context.moveTo(margin.left,y);context.lineTo(margin.left+pw,y);context.stroke();
+      context.fillStyle="#68738a";
+      context.textAlign="right";
+      context.fillText(formatTick(count,maxCount),margin.left-7,y);
+    }
+
+    for(let tick=0;tick<=4;tick+=1){
+      const fraction=tick/4;
+      const x=margin.left+fraction*pw;
+      const value=minimum+fraction*span;
+      context.strokeStyle="#edf1f6";
+      context.beginPath();context.moveTo(x,margin.top);context.lineTo(x,margin.top+ph);context.stroke();
+      context.fillStyle="#68738a";
+      context.textAlign="center";
+      context.textBaseline="top";
+      context.fillText(formatTick(value,span),x,margin.top+ph+7);
+      context.textBaseline="middle";
+    }
+
     for(let i=0;i<histogram.counts.length;i+=1){
       const x0=margin.left+i*pw/histogram.counts.length;
       const x1=margin.left+(i+1)*pw/histogram.counts.length;
-      const h=histogram.counts[i]/maxCount*ph;
-      context.fillRect(x0+0.5,margin.top+ph-h,Math.max(1,x1-x0-1),h);
+      const barHeight=histogram.counts[i]/maxCount*ph;
+      const rgb=colorAt((i+0.5)/histogram.counts.length);
+      context.fillStyle="rgb("+rgb.join(",")+")";
+      context.fillRect(x0+0.5,margin.top+ph-barHeight,Math.max(1,x1-x0-1),barHeight);
     }
-    context.strokeStyle="#94a3b8";context.beginPath();context.moveTo(margin.left,margin.top);context.lineTo(margin.left,margin.top+ph);context.lineTo(margin.left+pw,margin.top+ph);context.stroke();
-    context.fillStyle="#68738a";context.font="12px ui-sans-serif, system-ui, sans-serif";
-    context.textAlign="left";
-    context.fillText(formatTick(histogram.minimum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left,margin.top+ph+20);
-    context.textAlign="right";
-    context.fillText(formatTick(histogram.maximum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left+pw,margin.top+ph+20);
+
+    context.strokeStyle="#94a3b8";
+    context.strokeRect(margin.left+.5,margin.top+.5,pw-1,ph-1);
+
+    context.fillStyle="#344054";
     context.font="11px ui-sans-serif, system-ui, sans-serif";
+    context.textAlign="center";
+    context.textBaseline="bottom";
+    context.fillText(unit?"Value / "+unit:"Value",margin.left+pw/2,height-4);
+    context.save();
+    context.translate(13,margin.top+ph/2);
+    context.rotate(-Math.PI/2);
+    context.fillText("Count",0,0);
+    context.restore();
+
+    context.fillStyle="#4b5870";
+    context.font="10px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+    context.textAlign="right";
+    context.textBaseline="top";
+    const suffix=unit?" "+unit:"";
     context.fillText(
-      "n="+histogram.shown_count+"  mean="+formatTick(histogram.mean*scale,(histogram.maximum-histogram.minimum)*scale)+suffix+
-      "  median="+formatTick(histogram.median*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,
-      width-margin.right,16
+      "n="+histogram.shown_count+
+      "  mean="+formatTick(histogram.mean*scale,span)+suffix+
+      "  median="+formatTick(histogram.median*scale,span)+suffix,
+      width-margin.right,
+      12
     );
   }
 

@@ -423,10 +423,12 @@
   function renderRegistrationRecommendation(result) {
     const node = byId("registration-recommendation");
     if (!result) {
+      node.hidden = true;
       node.className = "recommendation-note";
-      node.textContent = "Uses the prepared trace and current geometry to estimate Y/X periods and a stable sampling phase.";
+      node.textContent = "";
       return;
     }
+    node.hidden = false;
     node.className = "recommendation-note recommendation-" + result.confidence_label;
     node.innerHTML =
       "<strong>" + result.confidence_label.toUpperCase() + " confidence</strong> · " +
@@ -742,7 +744,12 @@
 
     if(state.histogram){
       histogramEmpty.classList.add("hidden");
-      api.plotting.drawHistogram(histogramCanvas,state.histogram,{scale:display.scale,unit:display.unit});
+      api.plotting.drawHistogram(histogramCanvas,state.histogram,{
+        scale:display.scale,
+        unit:display.unit,
+        palette:byId("map-palette").value,
+        inverted:byId("invert-palette").checked,
+      });
     }else{
       histogramEmpty.classList.remove("hidden");
       api.plotting.clearCanvas(histogramCanvas);
