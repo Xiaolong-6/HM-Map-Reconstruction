@@ -40,3 +40,10 @@ test("trace viewport accepts explicit axis ranges",()=>{
   assert.ok(Math.abs(p.pixelToX(p.xToPixel(1,viewport),viewport)-1)<1e-12);
   assert.ok(Math.abs(p.pixelToY(p.yToPixel(20,viewport),viewport)-20)<1e-12);
 });
+
+
+test("tick formatting keeps small scientific values readable",()=>{
+  assert.equal(p.formatTick(0.00002449,0.00002),"2.449e-5");
+  assert.equal(p.formatTick(120,120),"120");
+  assert.equal(p.formatTick(24,120),"24");
+});

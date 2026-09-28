@@ -75,6 +75,18 @@
     return viewport.yMax - (pixel - viewport.top) / viewport.plotHeight * (viewport.yMax - viewport.yMin);
   }
 
+  function formatTick(value, span) {
+    const number=Number(value);
+    if(!Number.isFinite(number))return String(number);
+    if(number===0)return "0";
+    const magnitude=Math.abs(number);
+    const scale=Math.abs(Number(span));
+    if(magnitude<1e-3||magnitude>=1e5||(Number.isFinite(scale)&&scale>0&&scale<1e-3)){
+      return number.toExponential(3).replace(/\.0+e/,"e").replace(/(\.\d*?[1-9])0+e/,"$1e").replace("e+","e");
+    }
+    return Number(number.toPrecision(5)).toString();
+  }
+
   function drawTraces(canvas, timeS, series, options) {
     const context = clearCanvas(canvas);
     const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -107,13 +119,13 @@
     for (let tick = 0; tick <= 5; tick += 1) {
       const fraction = tick / 5, y = margin.top + fraction * plotHeight;
       context.beginPath(); context.moveTo(margin.left, y); context.lineTo(margin.left + plotWidth, y); context.stroke();
-      context.fillText((yMax - fraction * (yMax - yMin)).toPrecision(4), margin.left - 8, y);
+      context.fillText(formatTick(yMax - fraction * (yMax - yMin), yMax - yMin), margin.left - 8, y);
     }
     context.textAlign = "center";
     context.textBaseline = "top";
     for (let tick = 0; tick <= 5; tick += 1) {
       const fraction = tick / 5, x = margin.left + fraction * plotWidth;
-      context.fillText((xMin + fraction * (xMax - xMin)).toPrecision(4), x, margin.top + plotHeight + 9);
+      context.fillText(formatTick(xMin + fraction * (xMax - xMin), xMax - xMin), x, margin.top + plotHeight + 9);
     }
 
     const colors = ["#275fe6", "#d97706", "#168a62", "#7c3aed"];
@@ -271,14 +283,19 @@
     }
     context.strokeStyle="#94a3b8";context.beginPath();context.moveTo(margin.left,margin.top);context.lineTo(margin.left,margin.top+ph);context.lineTo(margin.left+pw,margin.top+ph);context.stroke();
     context.fillStyle="#68738a";context.font="12px ui-sans-serif, system-ui, sans-serif";context.textAlign="center";
-    context.fillText((histogram.minimum*scale).toPrecision(4)+suffix,margin.left,margin.top+ph+20);
-    context.fillText((histogram.maximum*scale).toPrecision(4)+suffix,margin.left+pw,margin.top+ph+20);
-    context.textAlign="left";context.fillText("n="+histogram.shown_count+"  mean="+(histogram.mean*scale).toPrecision(5)+suffix+"  median="+(histogram.median*scale).toPrecision(5)+suffix,margin.left,16);
+    context.fillText(formatTick(histogram.minimum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left,margin.top+ph+20);
+    context.fillText(formatTick(histogram.maximum*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,margin.left+pw,margin.top+ph+20);
+    context.font="11px ui-sans-serif, system-ui, sans-serif";context.textAlign="right";
+    context.fillText(
+      "n="+histogram.shown_count+"  mean="+formatTick(histogram.mean*scale,(histogram.maximum-histogram.minimum)*scale)+suffix+
+      "  median="+formatTick(histogram.median*scale,(histogram.maximum-histogram.minimum)*scale)+suffix,
+      width-margin.right,16
+    );
   }
 
   api.plotting = Object.freeze({
     clearCanvas, drawTrace, drawTraces,
-    traceDataBounds, traceViewport, xToPixel, yToPixel, pixelToX, pixelToY,
+    traceDataBounds, traceViewport, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
     paletteStops, heatmapBounds, heatmapDisplayIndex, drawHeatmap, drawHistogram
   });
 })(typeof window !== "undefined" ? window : globalThis);
