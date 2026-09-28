@@ -309,6 +309,25 @@
     });
   }
 
+  function mapIndexTicks(min,max,total,maxTicks) {
+    const limit=Math.max(2,Math.floor(maxTicks||5));
+    const first=Math.max(0,Math.ceil(min-0.5));
+    const last=Math.min(total-1,Math.floor(max-0.5));
+    if(last<first)return [];
+    const count=last-first+1;
+    if(count<=limit){
+      return Array.from({length:count},(_,offset)=>{
+        const index=first+offset;
+        return Object.freeze({index,coordinate:index+0.5,label:index+1});
+      });
+    }
+    const step=Math.max(1,Math.ceil((count-1)/(limit-1)));
+    const indices=[];
+    for(let index=first;index<=last;index+=step)indices.push(index);
+    if(indices[indices.length-1]!==last)indices.push(last);
+    return indices.map(index=>Object.freeze({index,coordinate:index+0.5,label:index+1}));
+  }
+
   function drawHeatmap(canvas, values, rows, cols, options) {
     const context=clearCanvas(canvas);
     if(!rows||!cols||!values||values.length!==rows*cols)return null;
@@ -355,22 +374,18 @@
     context.font="11px ui-sans-serif, system-ui, sans-serif";
     context.textBaseline="top";
     context.textAlign="center";
-    for(let tick=0;tick<=4;tick+=1){
-      const fraction=tick/4;
-      const x=viewport.left+fraction*viewport.plotWidth;
-      const dataX=viewport.xMin+fraction*(viewport.xMax-viewport.xMin);
+    for(const tick of mapIndexTicks(viewport.xMin,viewport.xMax,cols,5)){
+      const x=viewport.left+(tick.coordinate-viewport.xMin)/(viewport.xMax-viewport.xMin)*viewport.plotWidth;
       context.beginPath();context.moveTo(x,viewport.bottom);context.lineTo(x,viewport.bottom+4);context.stroke();
-      context.fillText(formatTick(dataX,viewport.xMax-viewport.xMin),x,viewport.bottom+7);
+      context.fillText(String(tick.label),x,viewport.bottom+7);
     }
     context.textBaseline="middle";
     context.textAlign="right";
-    for(let tick=0;tick<=4;tick+=1){
-      const fraction=tick/4;
-      const y=viewport.top+fraction*viewport.plotHeight;
-      const displayY=viewport.yMin+fraction*(viewport.yMax-viewport.yMin);
-      const rowCoordinate=flipY?rows-displayY:displayY;
+    for(const tick of mapIndexTicks(viewport.yMin,viewport.yMax,rows,5)){
+      const y=viewport.top+(tick.coordinate-viewport.yMin)/(viewport.yMax-viewport.yMin)*viewport.plotHeight;
+      const label=flipY?rows-tick.index:tick.label;
       context.beginPath();context.moveTo(viewport.left-4,y);context.lineTo(viewport.left,y);context.stroke();
-      context.fillText(formatTick(rowCoordinate,viewport.yMax-viewport.yMin),viewport.left-7,y);
+      context.fillText(String(label),viewport.left-7,y);
     }
     context.fillStyle="#344054";
     context.textAlign="center";
@@ -449,6 +464,6 @@
   api.plotting = Object.freeze({
     clearCanvas, drawTrace, drawTraces,
     traceDataBounds, traceViewport, traceEnvelopeIndices, xToPixel, yToPixel, pixelToX, pixelToY, formatTick,
-    paletteStops, heatmapBounds, heatmapDisplayIndex, heatmapViewport, mapPixelToData, drawHeatmap, drawHistogram
+    paletteStops, heatmapBounds, heatmapDisplayIndex, heatmapViewport, mapIndexTicks, mapPixelToData, drawHeatmap, drawHistogram
   });
 })(typeof window !== "undefined" ? window : globalThis);

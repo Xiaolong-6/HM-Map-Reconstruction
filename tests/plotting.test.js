@@ -97,3 +97,15 @@ test("heatmap viewport fits rectangular geometry without stretching cells",()=>{
   const viewport=p.heatmapViewport(800,500,20,40,null);
   assert.ok(Math.abs(viewport.plotWidth/viewport.plotHeight-2)<1e-9);
 });
+
+
+test("map index ticks use one-based integer pixel labels",()=>{
+  assert.deepEqual(
+    p.mapIndexTicks(0,5,5,5).map(t=>t.label),
+    [1,2,3,4,5],
+  );
+  const labels=p.mapIndexTicks(0,50,50,5).map(t=>t.label);
+  assert.equal(labels[0],1);
+  assert.equal(labels[labels.length-1],50);
+  assert.ok(labels.length<=6);
+});

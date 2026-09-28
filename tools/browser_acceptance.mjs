@@ -292,6 +292,16 @@ await setValue("y-phase",0);
 await setValue("x-period-offset",0);
 await setValue("x-phase",0.5);
 await setValue("window-fraction",0.65);
+const precisionContract = await evaluate(`(() => ({
+  yPhaseStep: document.getElementById("y-phase").step,
+  xPhaseStep: document.getElementById("x-phase").step,
+  windowFractionStep: document.getElementById("window-fraction").step
+}))()`);
+if (
+  precisionContract.yPhaseStep !== "0.001" ||
+  precisionContract.xPhaseStep !== "0.001" ||
+  precisionContract.windowFractionStep !== "0.001"
+) throw new Error("Fine registration step contract failed: " + JSON.stringify(precisionContract));
 const reconstructButtonPresent = await evaluate('Boolean(document.getElementById("reconstruct-button"))');
 if (reconstructButtonPresent) throw new Error("Manual Reconstruct button must not exist.");
 await waitFor(
@@ -341,6 +351,24 @@ const reconstructionUiContract = await evaluate(`(() => ({
 }))()`);
 if (!reconstructionUiContract.durationHidden) throw new Error("Fixed-duration control must be hidden in fraction mode.");
 if (reconstructionUiContract.summaryText.includes("No reconstruction")) throw new Error("Reconstruction summary is stale.");
+// Wheel zoom must alter the rendered map and Reset map view must restore it.
+const mapBeforeZoom = await evaluate('document.getElementById("map-canvas").toDataURL("image/png")');
+await evaluate(`(() => {
+  const canvas=document.getElementById("map-canvas");
+  const r=canvas.getBoundingClientRect();
+  canvas.dispatchEvent(new WheelEvent("wheel",{
+    deltaY:-360,
+    clientX:r.left+r.width*0.5,
+    clientY:r.top+r.height*0.5,
+    bubbles:true,
+    cancelable:true
+  }));
+  return true;
+})()`);
+await sleep(160);
+const mapAfterZoom = await evaluate('document.getElementById("map-canvas").toDataURL("image/png")');
+if (mapAfterZoom === mapBeforeZoom) throw new Error("Map wheel zoom did not change rendered viewport.");
+await click("reset-reconstruction-maps");
 await layoutContract(3);
 const mapAspect = await evaluate(`(() => {
   const map=document.getElementById("map-canvas").getBoundingClientRect();
