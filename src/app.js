@@ -178,7 +178,9 @@
     }
     state.signal = state.source.signalNames.includes(preferredSignal)
       ? preferredSignal
-      : state.source.signalNames[0];
+      : state.source.signalNames.includes("Current_A")
+        ? "Current_A"
+        : state.source.signalNames[0];
     select.value = state.signal;
     select.disabled = false;
   }

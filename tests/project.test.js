@@ -53,3 +53,12 @@ test("partial project with unset geometry remains a valid workspace",async()=>{
  root.geometry.columns=0;root.registration.point_offset=1;
  assert.throws(()=>api.project.validateProject(root),/offsets for unset geometry/);
 });
+
+
+test("pure JavaScript SHA-256 fallback matches the standard digest",()=>{
+ const bytes=encoder.encode("abc");
+ assert.equal(
+  api.project.sha256FallbackHex(bytes),
+  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+ );
+});
