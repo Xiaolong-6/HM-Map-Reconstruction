@@ -203,11 +203,22 @@ Completed or implemented:
 - browser layout contract at 1366×768 and 1760×900: no page scrollbar, no title header, control/workspace columns own the vertical scrolling;
 - offline ZIP packaging with a 2 MiB CI ceiling; current package is 43,207 bytes versus 52,647,228 bytes for the previous Qt Map Reconstruction portable ZIP (about 1,218× smaller).
 
+Real-data acceptance completed locally without committing measurement files:
+
+- 5 historical v3 `.hmmap` projects, all Phase Window and `Current_A`;
+- geometry coverage: three 36×36 maps and two 50×50 maps;
+- preparation coverage includes both `none` and `manual_regions`;
+- source sizes span 46,176–113,266 samples;
+- all 5 embedded-source SHA-256 values verified;
+- all 5 projects completed load → preparation → reconstruction → save → reopen;
+- reconstructed values and sample-count arrays were exactly unchanged after Web save/reopen (maximum delta 0);
+- 7 historical HappyMeasure `single-v2` CSV files spanning 41,623–113,266 samples parsed successfully with both `Voltage_V` and `Current_A`.
+
+The user measurement corpus remains outside the public repository.
+
 Still required before desktop replacement:
 
-- screenshot-based browser review with representative measurements;
-- historical user-created `.hmmap` corpus, because HappyMeasure does not contain committed real `.hmmap` fixtures;
-- representative real HappyMeasure CSV corpus beyond synthetic/oracle fixtures;
+- final screenshot-based user review with representative measurements;
 - browser-memory review on larger real files;
 - final user acceptance of the offline ZIP artifact.
 
