@@ -1,12 +1,11 @@
 name: Pages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/pages.yml"
-  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -18,69 +17,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout Web prototype
-        uses: actions/checkout@v4
-        with:
-          ref: feat/web-prototype
-
-      - name: Checkout pinned HappyMeasure oracle
-        uses: actions/checkout@v4
-        with:
-          repository: Xiaolong-6/HappyMeasure
-          ref: 402b88f1c42cff41bf6054e1724bc62b4deb7af3
-          path: oracle-hm
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: JavaScript syntax check
-        run: |
-          for file in src/*.js tests/*.js tools/*.js; do
-            node --check "$file"
-          done
-
-      - name: Install Python oracle dependency
-        run: python -m pip install --disable-pip-version-check numpy
-
-      - name: Generate pinned Python oracle fixtures
-        env:
-          PYTHONPATH: oracle-hm/src
-        run: python tools/generate_python_oracle.py
-
-      - name: Generate Web project fixtures
-        run: node tools/create_web_project_fixture.js
-
-      - name: Validate Web projects in Python
-        env:
-          PYTHONPATH: oracle-hm/src
-        run: python tools/validate_web_project.py
-
-      - name: Run JS tests including Python oracle parity
-        env:
-          REQUIRE_PYTHON_ORACLE: "1"
-        run: npm test
-
   deploy:
-    needs: validate
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'feat/web-prototype'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout validated Web prototype
+      - name: Checkout validated Web prototype commit
         uses: actions/checkout@v4
         with:
-          ref: feat/web-prototype
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Prepare static site
         run: |
