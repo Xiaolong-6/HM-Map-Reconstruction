@@ -1,7 +1,33 @@
 # HM Map Reconstruction
 
-Private development repository for the browser-based Map Reconstruction application.
+Private standalone development repository for the browser-based Map Reconstruction application extracted from HappyMeasure.
 
-The current goal is to reproduce the scientific behavior of HappyMeasure's existing Python/Qt Map Reconstruction in an offline-first static web application. The Python implementation in `Xiaolong-6/HappyMeasure` remains the scientific reference during migration.
+The target is an offline-first static Web application with no Python runtime, Qt runtime, local server, network dependency, hardware access, or instrument state.
 
-Development work happens on dedicated branches. The desktop Map Reconstruction code and documentation in HappyMeasure remain untouched until the Web implementation has passed cross-runtime parity, project-format compatibility, and replacement acceptance gates.
+## Current prototype
+
+Implemented on the prototype branch:
+
+- HappyMeasure `single-v2` CSV import and raw trace preview
+- Signal Preparation: none, constant, manual regions, rolling quantile
+- Legacy Dual Offset reconstruction
+- Dual Offset — Phase Window reconstruction
+- scan orientation and sample-count QC
+- map processing, normalization, log scale, color levels and histogram
+- `.hmmap` v1/v2/v3 import with SHA-256 verification
+- Web-created `.hmmap` export using the existing project schemas
+- dependency-free Node tests
+
+Open `index.html` directly in a modern browser. Run tests with:
+
+```bash
+npm test
+```
+
+## Migration boundary
+
+The existing Python/Qt Map Reconstruction in `Xiaolong-6/HappyMeasure` remains the scientific reference implementation during migration and must remain untouched for now.
+
+Only after cross-runtime parity, historical-project compatibility, browser/offline acceptance and replacement validation pass should HappyMeasure get a separate cleanup branch removing the desktop Map Reconstruction code, packaging and obsolete documentation.
+
+See `docs/MIGRATION_PLAN.md`.

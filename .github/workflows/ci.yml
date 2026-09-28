@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "audit/**"
+  pull_request:
+
+jobs:
+  web-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JavaScript syntax check
+        run: |
+          for file in src/*.js tests/*.js; do
+            node --check "$file"
+          done
+      - name: Run dependency-free scientific-core tests
+        run: npm test
