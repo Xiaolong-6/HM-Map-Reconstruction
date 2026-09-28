@@ -83,3 +83,16 @@ jobs:
           CHROME_PID=$!
           trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
           FILE_URL="file://$PWD/index.html" node tools/check_file_boot.mjs
+
+      - name: Build offline ZIP
+        run: python tools/package_offline.py
+
+      - name: Upload offline ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: HM-Map-Reconstruction-offline
+          path: |
+            dist/HM-Map-Reconstruction-offline.zip
+            dist/offline-package.json
+          if-no-files-found: error
+          retention-days: 14
