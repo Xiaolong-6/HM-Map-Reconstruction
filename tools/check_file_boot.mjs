@@ -68,8 +68,6 @@ for (let attempt = 0; attempt < 150; attempt += 1) {
   await sleep(100);
 }
 
-socket.close();
-
 if (!state || state.appReady !== "true") {
   const details = exceptions.map(item =>
     item.exception && item.exception.description
@@ -130,4 +128,5 @@ for (const [width, height] of [[1366, 768], [1760, 900]]) {
   console.log("layout OK", JSON.stringify(layout));
 }
 
+socket.close();
 console.log("file:// boot OK", JSON.stringify(state));
