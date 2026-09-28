@@ -457,6 +457,16 @@ const recommendationHelperContract = await evaluate(`(() => ({
 if (!recommendationHelperContract.buttonTitle.includes("Uses the prepared trace")) {
   throw new Error("Recommendation help must live in the hover title.");
 }
+const reconstructionControlFit = await evaluate(`(() => {
+  const panel=document.querySelector("#stage-3 .control-panel");
+  panel.scrollTop=0;
+  const rect=panel.getBoundingClientRect();
+  const last=document.getElementById("phase-aggregation").getBoundingClientRect();
+  return {panelBottom:rect.bottom,lastBottom:last.bottom,scrollHeight:panel.scrollHeight,clientHeight:panel.clientHeight};
+})()`);
+if (reconstructionControlFit.lastBottom > reconstructionControlFit.panelBottom + 1) {
+  throw new Error("Stage 3 registration controls should fit the initial sidebar viewport: " + JSON.stringify(reconstructionControlFit));
+}
 const reconstructionViewportFit = await evaluate(`(() => {
   const workspace=document.querySelector("#stage-3 .workspace").getBoundingClientRect();
   const trace=document.querySelector("#stage-3 .registration-trace-card").getBoundingClientRect();

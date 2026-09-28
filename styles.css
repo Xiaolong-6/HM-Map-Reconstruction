@@ -546,3 +546,15 @@ textarea { resize: vertical; font: 12px ui-monospace, SFMono-Regular, Menlo, Con
 #stage-4 .analysis-grid .map-card canvas {
   aspect-ratio:1 / 1;
 }
+
+.three-column {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.three-column .field { min-width:0; }
+.three-column .field span {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}

@@ -113,22 +113,19 @@
         <div class="parameter-group">
           <h3>Y registration</h3>
           <div class="two-column"><label class="field"><span>YA / s</span><input id="row-a" type="number" value="0" step="any"></label><label class="field"><span>YB / s</span><input id="row-b" type="number" value="10" step="any"></label></div>
-          <div class="two-column"><label class="field"><span>Rows apart</span><input id="rows-apart" type="number" value="1" min="1" step="1"></label><label class="field"><span>Row offset</span><input id="row-offset" type="number" value="0" min="0" step="1"></label></div>
-          <label class="field"><span>Y phase</span><input id="y-phase" type="number" value="0" step="0.001"></label>
+          <div class="three-column"><label class="field"><span>Rows apart</span><input id="rows-apart" type="number" value="1" min="1" step="1"></label><label class="field"><span>Row offset</span><input id="row-offset" type="number" value="0" min="0" step="1"></label><label class="field"><span>Y phase</span><input id="y-phase" type="number" value="0" step="0.001"></label></div>
         </div>
 
         <div class="parameter-group">
           <h3>X registration</h3>
           <div class="two-column"><label class="field"><span>XA / s</span><input id="point-a" type="number" value="0" step="any"></label><label class="field"><span>XB / s</span><input id="point-b" type="number" value="1" step="any"></label></div>
-          <div class="two-column"><label class="field"><span>Points apart</span><input id="points-apart" type="number" value="1" min="1" step="1"></label><label class="field"><span>X offset / periods</span><input id="x-period-offset" type="number" value="0" min="0" step="1"></label></div>
-          <label class="field"><span>X phase</span><input id="x-phase" type="number" value="0.5" step="0.001"></label>
+          <div class="three-column"><label class="field"><span>Points apart</span><input id="points-apart" type="number" value="1" min="1" step="1"></label><label class="field"><span>X offset</span><input id="x-period-offset" type="number" value="0" min="0" step="1" title="Integer point-period offset"></label><label class="field"><span>X phase</span><input id="x-phase" type="number" value="0.5" step="0.001"></label></div>
         </div>
 
         <div class="parameter-group" id="phase-registration">
           <h3>Sampling window</h3>
-          <label class="field"><span>Window</span><select id="window-mode"><option value="fraction">Fraction of point period</option><option value="fixed_duration">Fixed duration</option></select></label>
+          <div class="two-column"><label class="field"><span>Window</span><select id="window-mode"><option value="fraction">Fraction of point period</option><option value="fixed_duration">Fixed duration</option></select></label><label class="field"><span>Aggregation</span><select id="phase-aggregation"><option value="median">Median</option><option value="mean">Mean</option></select></label></div>
           <div class="two-column"><label class="field"><span>Fraction</span><input id="window-fraction" type="number" value="0.65" min="0" max="1" step="0.001"></label><label class="field"><span>Duration / s</span><input id="window-duration" type="number" value="0.1" min="0" step="any"></label></div>
-          <label class="field"><span>Aggregation</span><select id="phase-aggregation"><option value="median">Median</option><option value="mean">Mean</option></select></label>
         </div>
         <div class="inline-actions">
           <button id="save-project-button" class="secondary-button compact-button" disabled>Save .hmmap</button>
